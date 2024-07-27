@@ -1,0 +1,1 @@
+print("Yes, this test is successful. Hello, world.")
