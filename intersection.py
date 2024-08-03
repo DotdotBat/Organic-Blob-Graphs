@@ -7,7 +7,7 @@ from pygame.math import Vector2
 class Intersection:
     def __init__(self, chains:List[Chain]) -> None:
         self.chains = []
-        self.core = []
+        self.core: Point
         self.next_kin = []
         self.is_first_point = []
         #to connect chains properly 
@@ -37,25 +37,19 @@ class Intersection:
             guiding_point_candidate = a.last_point
 
         guiding_point = guiding_point_candidate
+        self.core = guiding_point
         for chain in chains:
-            connection_point:Point
-            df = chain.first_point.co.distance_squared_to(guiding_point.co)
-            dl = chain.last_point.co.distance_squared_to(guiding_point.co)
-            if (df<dl):
-                connection_point = chain.first_point
-            else:
-                connection_point = chain.last_point
-            self.connect_chain_by_point(chain, connection_point)
+            self.connect_chain_by_point(chain, guiding_point)
     
     chains: List[Chain]
-    core: List[Point]
+    core: Point
     next_kin: List[Point]
     is_first_point: List[bool]
 
     def connect_chain_by_point(self, chain:Chain, point:Point):
         self.chains.append(chain)
-        self.core.append(point)
         end_point_is_first = point == chain.first_point
+        chain.add_point(point, append_to_start=end_point_is_first)
         self.is_first_point.append(end_point_is_first)
         neighbor_point:Point
         if end_point_is_first:

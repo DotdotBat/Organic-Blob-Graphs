@@ -32,8 +32,8 @@ def simulate(dt:float):
         chain.enforce_minimum_secondary_joint_distance(angle_enforcing_distance)
     for chain in chains:
         chain.applyAccumulatedOffsets()
-    for intersection in intersections:
-        intersection.keep_chains_connected()
+    # for intersection in intersections:
+    #     intersection.keep_chains_connected()
 
     
 

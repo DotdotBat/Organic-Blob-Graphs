@@ -55,7 +55,8 @@ class Chain:
             b = self.points[i+1]
             correction = b.co - a.co
             correction_amount = (correction.length() - link_length)
-            correction.scale_to_length(correction_amount)
+            if correction.length()>0.01:
+                correction.scale_to_length(correction_amount)
             correction/=2
             a.add_offset(correction.x, correction.y)
             b.add_offset(-correction.x, -correction.y)
@@ -71,6 +72,15 @@ class Chain:
                 diff.scale_to_length(correction_amount/4)
                 a.add_offset(diff.x, diff.y)
                 b.add_offset(-diff.x, -diff.y)
+    
+    def add_point(self, point:Point, append_to_start:bool):
+        if append_to_start:
+            self.points.insert(0, point)
+            self.first_point = point
+        else:
+            self.points.append(point)
+            self.last_point = point
+        self.points_number+=1
     
     
 
