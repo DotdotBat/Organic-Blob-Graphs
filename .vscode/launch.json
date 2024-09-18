@@ -8,7 +8,14 @@
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}\\main_script.py",
+            "program": "${workspaceFolder}\\__main__.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}\\__main__.py",
             "console": "integratedTerminal"
         }
     ]

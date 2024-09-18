@@ -16,3 +16,13 @@ class Point:
     def __str__(self) -> str:
         return f'Point at {self.co}'
     
+    __repr__ = __str__
+    
+    @classmethod
+    def from_point_and_offset(cls, point:"Point", offset:Vector2):
+        co = point.co + offset
+        return cls(co.x, co.y)
+    
+    def clamp_offset(self, max_offset_magnitude):
+        raise NotImplementedError()
+    
