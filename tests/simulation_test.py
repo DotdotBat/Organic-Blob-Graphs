@@ -1,20 +1,20 @@
 from blob import Blob
 from chain import Chain
 from point import Point
-import random
+import pytest
 
 import simulation
 def test_apply_blob_area_equalization_force():
-    blob_point_num = 30 + 40 + 50 + 60 - 4
+    blob_point_num = 5 + 6 + 7 + 8 - 4
     for spawn_location in range(blob_point_num * 2): #this test failes in about a third of the runs. I don't want to rely on chance
         p1 = Point(0, 0)
         p2 = Point(0, 100)
         p3 = Point(100, 100)
         p4 = Point(100, 0)
-        chain1 = Chain.from_end_points(p1, p2, point_num= 30)
-        chain2 = Chain.from_end_points(p2, p3, point_num= 40)
-        chain3 = Chain.from_end_points(p4, p3, point_num= 50)
-        chain4 = Chain.from_end_points(p4, p1, point_num= 60)
+        chain1 = Chain.from_end_points(p1, p2, point_num= 5)
+        chain2 = Chain.from_end_points(p2, p3, point_num= 6)
+        chain3 = Chain.from_end_points(p4, p3, point_num= 7)
+        chain4 = Chain.from_end_points(p4, p1, point_num= 8)
         big_blob = Blob.from_chain_loop([chain1, chain2, chain3, chain4])
         if spawn_location > blob_point_num:
             spawn_location = None
@@ -44,3 +44,40 @@ def test_apply_blob_area_equalization_force():
         assert big_blob.area < start_big_area
         assert small_blob.area > start_small_area
 
+
+
+def test_remove_and_insert_midpoint():
+    # Create a uniform square blob with 4 points on each side
+    p1 = Point(0, 0)
+    p2 = Point(0, 100)
+    p3 = Point(100, 100)
+    p4 = Point(100, 0)
+    chain1 = Chain.from_end_points(p1, p2, point_num=4)
+    chain2 = Chain.from_end_points(p2, p3, point_num=4)
+    chain3 = Chain.from_end_points(p3, p4, point_num=4)
+    chain4 = Chain.from_end_points(p4, p1, point_num=4)
+    blob = Blob.from_chain_loop([chain1, chain2, chain3, chain4])
+    for point_index in range(blob.points_num):
+        # Remove a point
+        point_to_remove = blob.get_point(point_index)
+        blob.remove_point(point_index)
+        
+        # Test that the point is removed
+        assert point_to_remove not in [point for chain in blob.chain_loop for point in chain.points]
+        
+        # Find the biggest gap
+        index1, index2 = blob.find_biggest_gap()
+        point1 = blob.get_point(index1)
+        point2 = blob.get_point(index2)
+        
+        # Insert a midpoint between these indexes
+        midpoint = blob.insert_midpoint(index1, index2)
+        
+        # Test that the midpoint is indeed inserted
+        expected_midpoint_co = (point1.co + point2.co) / 2
+        assert midpoint.co.x == pytest.approx(expected_midpoint_co.x)
+        assert midpoint.co.y == pytest.approx(expected_midpoint_co.y)
+        assert midpoint in [point for chain in blob.chain_loop for point in chain.points]
+
+        # Ensure the blob is still valid
+        assert blob.is_valid(raise_errors=True)

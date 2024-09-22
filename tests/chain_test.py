@@ -168,5 +168,26 @@ def test_get_on_blob_point_index():
             assert chain_point == blob_point
 
 
-
+def test_insert_midpoint():
+    # Create a chain with three points
+    p1 = Point(0, 0)
+    p2 = Point(5, 0)
+    chain_points_number = 5
+    for i in range(chain_points_number - 1):
+        chain = Chain.from_end_points(p1, p2, point_num=chain_points_number)
+        point1 = chain.points[i]
+        next_i = i+1
+        point2 = chain.points[next_i]
+        midpoint = chain.create_midpoint(i, next_i)
+        assert chain.points_number == chain_points_number + 1
+        expected_midpoint_co = (point1.co + point2.co) / 2
+        
+        #vectors and approx don't work together. compare x and y seperately
+        assert midpoint.co.x == pytest.approx(expected_midpoint_co.x)
+        assert midpoint.co.y == pytest.approx(expected_midpoint_co.y)
+        assert chain.points[i]     == point1
+        assert chain.points[i + 1] == midpoint
+        next_i = (i+2)% chain.points_number
+        assert chain.points[next_i] == point2
+        
 

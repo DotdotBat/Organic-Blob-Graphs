@@ -1,5 +1,4 @@
 from pygame.math import Vector2
-
 class Point:
     def __init__(self, x, y) -> None:
         self.co = Vector2(x, y)
@@ -25,4 +24,6 @@ class Point:
     
     def clamp_offset(self, max_offset_magnitude):
         raise NotImplementedError()
+    
+    chains:set
     

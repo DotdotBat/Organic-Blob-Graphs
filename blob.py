@@ -1,6 +1,7 @@
-from typing import List
 from chain import Chain
 from point import Point
+
+from typing import List
 import math
 import random
 from list_util import rotate_list
@@ -360,12 +361,12 @@ class Blob:
             else:
                 chain.set_blobs(right=self)
     
-    def create_point_between_indexes(self, point_index:int, next_index:int)->Point:
-        chain, chain_i, next_chain_i = self.get_chain_and_indexes_of_neighbors(point_index, next_index)
-        new_point = chain.create_point_between_indexes(chain_i, next_chain_i)
+    def create_midpoint(self, point_index:int, next_index:int)->Point:
+        chain, chain_point_i, next_chain_point_i = self.get_chain_and_indexes_of_neighbors(point_index, next_index)
+        new_point = chain.create_midpoint(chain_point_i, next_chain_point_i)
         return new_point
     
-    def get_chain_and_indexes_of_neighbors(self, point_i, next_i)->tuple[Chain, int, int]:
+    def get_chain_and_indexes_of_neighbors(self, point_i:int, next_i:int)->tuple[Chain, int, int]:
         chain_index = self.get_points_common_chain_index(point_i, next_i)
         iis = [0] + self.intersection_indexes
         low_i = iis[chain_index]
@@ -413,4 +414,46 @@ class Blob:
     def get_points_common_chain(self, point1_index, point2_index):
         chain_index = self.get_points_common_chain_index(point1_index, point2_index)
         return self.chain_loop[chain_index]
+    
+    def neighboring_indexes(self, point_index:int)->tuple[int, int]:
+        prev_index = (point_index - 1)% self.points_num
+        next_index = (point_index + 1)% self.points_num
+        return prev_index, next_index
+        
+    def remove_point(self, point_index):
+        if not self.is_intersection_at(point_index):
+            chain, chain_point_index = self.get_chain_and_on_chain_point_index_at(point_index)
+            chain.remove_point(chain_point_index)
+        
+        #so this is an intersection. 
+        #Then we should merge connections it to a neighbor
+        
+        _, next_index = self.neighboring_indexes(point_index)
+        point = self.get_point(point_index)
+        next_point = self.get_point(next_index)
+        common_chain = self.get_points_common_chain(point_index, next_index)
+        point_chains = point.chains.copy()
+        for chain in point_chains:
+            if chain == common_chain:
+                common_chain.remove_point(point)
+                if common_chain.points_number < 2:
+                    common_chain.remove_point(next_point)
+                    self.chain_loop.remove(common_chain)
+            chain.swap_points(remove=point, insert=next_point)
+        
+        #for chain of point we have to reconnect them to a neighboring point.
+        # find list of all chains point is connected to, but neighbor isn't
+        # swap points on chains
+        # remove the point from common chain
+        # if common chain now has only one point - remove the chain
+        
+        
+
+
+        chain_set = set(point.chains + next_point.chains)
+        next_point.chains = chain_set
+        
+
+
+        
         

@@ -1,3 +1,4 @@
+from typing import List
 from point import Point
 from chain import Chain
 from blob import Blob
@@ -363,22 +364,26 @@ def test_create_point_between_indexes():
     valid_blob_point_number = standard_valid_blob_point_number
     for point_index in range(valid_blob_point_number):
         blob = create_valid_blob()
-        next_index = (point_index + 1) % blob.points_num
+        _, next_index = blob.neighboring_indexes(point_index)
+        point1 = blob.get_point(point_index)
+        point2 = blob.get_point(next_index)
         
-        new_point = blob.create_point_between_indexes(point_index, next_index)
+        new_point = blob.create_midpoint(point_index, next_index)
         
         # Check that the number of points increased by one
         assert blob.points_num == valid_blob_point_number + 1
         
         # Check that the new point is approximately in the middle
-        point1 = blob.get_point(point_index)
-        point2 = blob.get_point(next_index)
-        midpoint = (point1.co + point2.co) / 2
+        expected_midpoint_co = (point1.co + point2.co) / 2
         
-        assert new_point.co == pytest.approx(midpoint)
+        assert new_point.co.x == pytest.approx(expected_midpoint_co.x)
+        assert new_point.co.y == pytest.approx(expected_midpoint_co.y)
         
         # Check that the new point is accessible by the i+1 index
-        assert blob.get_point(point_index + 1) == new_point
+        assert blob.get_point(point_index) == point1
+        _, next_index = blob.neighboring_indexes(point_index)
+        assert blob.get_point(next_index) == new_point
+
         assert blob.is_valid(raise_errors=True)
 
 def test_get_chain_and_indexes_of_neighbors():
@@ -424,3 +429,65 @@ def test_get_chains_at_point():
             assert point in chain.points
         for chain in chains_at_point:
             assert chain in blob.chain_loop
+
+def test_remove_point_between_indexes():
+    valid_blob_point_number = standard_valid_blob_point_number
+    for point_index in range(valid_blob_point_number):
+        blob = create_valid_blob()
+        second_blob, chains = blob.spawn_small_blob(0)
+        _, next_index = blob.neighboring_indexes(point_index)
+        _, next_next_index = blob.neighboring_indexes(next_index)
+        point1 = blob.get_point(point_index)
+        point2 = blob.get_point(next_index)
+        point3 = blob.get_point(next_next_index)
+        
+        removed_point = blob.remove_point(next_index)
+
+        assert blob.points_num == valid_blob_point_number - 1
+        assert blob.get_point(point_index) == point1
+        assert               removed_point == point2
+        assert  blob.get_point(next_index) == point3
+
+        #it actually can be point1 or point3, depending on the implementaion,
+        #so if this is getting flagged, try chainging it. 
+        #Though you really should know with which option you went.
+        assert all(chain in point1.chains for chain in removed_point.chains)
+        assert blob.is_valid(raise_errors=True)
+        assert second_blob.is_valid(raise_errors=True)
+        assert_references(blobs=[blob, second_blob])
+
+
+def assert_references(blobs:List[Blob] = [], chains: List[Chain] = [], points:List[Point] = []):
+    for blob in blobs:
+        for chain in blob.chain_loop:
+            cbr, cbl = chain.blob_right, chain.blob_left
+            assert cbr == blob or cbl == blob
+            #at least one of them is our blob.
+            assert not cbr == cbl, f'both sides cannot be the same blob!' 
+        
+    if blobs != [] and chains == []:
+        chains = {chain for blob in blobs for chain in blob.chain_loop}
+
+    for chain in chains:
+        if chain.blob_right:
+            assert chain in chain.blob_right.chain_loop
+        if chain.blob_left:
+            assert chain in chain.blob_left.chain_loop
+        if chain.blob_left and chain.blob_right:
+            assert chain.blob_right != chain.blob_left
+
+    for chain in chains:
+        for point in chain.points:
+            assert chain in point.chains, f"Chain not found in point's chains set for point {point}"
+    
+    # Create a set of all unique points
+    if chains != [] and points == []:
+        points = {point for chain in chains for point in chain.points}
+    
+    # Check each point
+    for point in points:
+        for chain in point.chains:
+            assert point in chain.points, f"Point {point} not found in chain's points"
+
+    if points == []:
+        raise RuntimeError()

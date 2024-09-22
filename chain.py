@@ -1,5 +1,4 @@
 from point import Point
-
 from typing import List, Sequence, Tuple
 import math
 import pygame
@@ -14,34 +13,34 @@ class Chain:
         self.color = pygame.Color(color)
     
     @property
-    def point_start(self) -> Point:
+    def point_start(self) -> "Point":
         """First point"""
         return self.points[0]
     @point_start.setter
-    def point_start(self, point:Point):
+    def point_start(self, point:"Point"):
         self.points[0] = point
 
     @property
-    def point_end(self) -> Point:
+    def point_end(self) -> "Point":
         """Last point"""
         return self.points[-1]
     
     @point_end.setter
-    def point_end(self, point:Point):
+    def point_end(self, point:"Point"):
         self.points[-1] = point
 
     @property
     def points_number(self) -> int:
         return len(self.points)
 
-    points:List[Point]
+    points:List["Point"]
 
-    blob_left: 'Blob' = None # type: ignore
-    blob_right:"Blob" = None # type: ignore
+    blob_left = None 
+    blob_right= None
 
 
     @classmethod
-    def from_point_list(cls, points:Sequence[Point], color = None) -> "Chain":
+    def from_point_list(cls, points:Sequence["Point"], color = None) -> "Chain":
         chain = cls(color)
         chain.points = points[:] #list soft copy 
         return chain
@@ -225,5 +224,19 @@ class Chain:
         else:
             blob_point_index = point_count + chain.points_number - 1 - chain_point_index
         return blob_point_index    
+    
+    def create_midpoint(self, point_index:int, next_index:int):
+        if abs(point_index - next_index)!=1:
+            raise RuntimeError("those are not neighbors")
+        if point_index > next_index:
+            point_index, next_index = next_index, point_index
+        point = self.points[point_index]
+        next_point = self.points[next_index]
+        mid_co = (point.co + next_point.co)/2
+        midpoint = Point(mid_co.x, mid_co.y)
+        mid_offset = (point.offset + next_point.offset)/2
+        midpoint.offset = mid_offset
+        self.points.insert(point_index+1, midpoint)
+        return midpoint
         
     
