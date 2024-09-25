@@ -45,7 +45,7 @@ def test_apply_blob_area_equalization_force():
         assert small_blob.area > start_small_area
 
 
-
+from blob_test import assert_references
 def test_remove_and_insert_midpoint():
     # Create a uniform square blob with 4 points on each side
     p1 = Point(0, 0)
@@ -66,12 +66,12 @@ def test_remove_and_insert_midpoint():
         assert point_to_remove not in [point for chain in blob.chain_loop for point in chain.points]
         
         # Find the biggest gap
-        index1, index2 = blob.find_biggest_gap()
+        index1, index2 = blob.find_biggest_gap_indexes()
         point1 = blob.get_point(index1)
         point2 = blob.get_point(index2)
         
         # Insert a midpoint between these indexes
-        midpoint = blob.insert_midpoint(index1, index2)
+        midpoint = blob.create_midpoint(index1, index2)
         
         # Test that the midpoint is indeed inserted
         expected_midpoint_co = (point1.co + point2.co) / 2
@@ -79,5 +79,23 @@ def test_remove_and_insert_midpoint():
         assert midpoint.co.y == pytest.approx(expected_midpoint_co.y)
         assert midpoint in [point for chain in blob.chain_loop for point in chain.points]
 
+
         # Ensure the blob is still valid
         assert blob.is_valid(raise_errors=True)
+
+        #insert another point after the inserted midpoint
+        _, next_index = blob.neighboring_indexes(point_index)
+        midpoint = blob.create_midpoint(point_index, next_index)
+
+        # find the most crowded point 
+        crowded_index = blob.find_most_crowded_point_index()
+        crowded_point = blob.get_point(crowded_index)
+        #check that it is the point we planted
+        assert crowded_point is midpoint
+
+        #remove it 
+        blob.remove_point(crowded_index)
+        #check that everything is still valid after all our manipulations
+        blob.is_valid()
+        assert_references(blobs=[blob])
+

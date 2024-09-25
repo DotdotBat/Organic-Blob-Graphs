@@ -129,8 +129,8 @@ class Blob:
         new_chain_start_point = Point.from_point_and_offset(s, inset)
         new_chain_end_point = Point.from_point_and_offset(e, inset)
         new_chain = Chain.from_end_points(start=new_chain_start_point, end=new_chain_end_point, point_num=3)
-        new_chain.add_point(s, append_to_start=True)
-        new_chain.add_point(e, append_to_start=False)
+        new_chain.append_endpoint(s, append_to_start=True)
+        new_chain.append_endpoint(e, append_to_start=False)
         on_old_blob_chains = self.get_chains_between_intersections(
             start_index = spawn_location-1, 
             end_index = spawn_location + 1
@@ -280,7 +280,11 @@ class Blob:
         if len(self.chain_loop)<1:
             if re: raise RuntimeError("Chain loop is empty")
             return False
-            
+        
+        for chain in self.chain_loop:
+            if chain.points_number < 2:
+                if re: raise RuntimeError("Chain is too short", chain)
+                return False
         
         #loop connectivity check
         ########################
@@ -423,10 +427,10 @@ class Blob:
     def remove_point(self, point_index):
         if not self.is_intersection_at(point_index):
             chain, chain_point_index = self.get_chain_and_on_chain_point_index_at(point_index)
-            chain.remove_point(chain_point_index)
+            return chain.remove_point(chain_point_index)
         
         #so this is an intersection. 
-        #Then we should merge connections it to a neighbor
+        #Then we should merge its connections to a neighbor
         
         _, next_index = self.neighboring_indexes(point_index)
         point = self.get_point(point_index)
@@ -434,25 +438,45 @@ class Blob:
         common_chain = self.get_points_common_chain(point_index, next_index)
         point_chains = point.chains.copy()
         for chain in point_chains:
+            chain:Chain
             if chain == common_chain:
                 common_chain.remove_point(point)
                 if common_chain.points_number < 2:
                     common_chain.remove_point(next_point)
-                    self.chain_loop.remove(common_chain)
-            chain.swap_points(remove=point, insert=next_point)
-        
-        #for chain of point we have to reconnect them to a neighboring point.
-        # find list of all chains point is connected to, but neighbor isn't
-        # swap points on chains
-        # remove the point from common chain
-        # if common chain now has only one point - remove the chain
-        
-        
+                    common_chain.unregister_from_blobs()
 
+            else:
+                chain.swap_point( point_to_remove=point, point_to_insert=next_point)
+        return point
+    
+    def find_biggest_gap_indexes(self):
+        biggest_gap = 0
+        for point_index in range(self.points_num):
+            _, next_index = self.neighboring_indexes(point_index)
+            point = self.get_point(point_index)
+            next_point = self.get_point(next_index)
+            gap = point.co.distance_squared_to(next_point.co)
+            if gap > biggest_gap:
+                i = point_index
+                next_i = next_index
+                biggest_gap = gap
+        return i, next_i
+    
+    def find_most_crowded_point_index(self):
+        smallest_sum = math.inf
+        for point_index in range(self.points_num):
+            prev_index, next_index = self.neighboring_indexes(point_index)
+            prev_point = self.get_point(prev_index)
+            point = self.get_point(point_index)
+            next_point = self.get_point(next_index)
+            prev_gap = point.co.distance_squared_to(prev_point.co)
+            next_gap = point.co.distance_squared_to(next_point.co)
+            sum = prev_gap + next_gap
+            if sum < smallest_sum:
+                i = point_index
+                smallest_sum = sum
+        return i
 
-        chain_set = set(point.chains + next_point.chains)
-        next_point.chains = chain_set
-        
 
 
         

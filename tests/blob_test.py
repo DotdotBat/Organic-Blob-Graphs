@@ -99,21 +99,17 @@ def test_get_inner_direction():
 
 
 def test_cut_at():
-    blob = create_valid_blob()
-    for cut_location in range(blob.points_num):
+    for cut_location in range(standard_valid_blob_point_number):
         blob = create_valid_blob()
         expected_chains_amount = len(blob.chain_loop)
         if not blob.is_intersection_at(cut_location):
             expected_chains_amount += 1
         prev_chain, next_chain = blob.cut_at(cut_location)
+        assert blob.points_num == standard_valid_blob_point_number, "the cut operation should not change point number"
         assert blob.is_intersection_at(cut_location)
         cut_point = blob.get_point(cut_location)
         assert prev_chain.common_endpoint(next_chain) == cut_point
         before_chain, after_chain = blob.get_chains_at_intersection(cut_location)
-        # for b, p in zip(before_chain.points, prev_chain.points):
-        #     assert b == p
-        # for b, p in zip(after_chain.points, next_chain.points):
-        #     assert b == p
         assert before_chain.points == prev_chain.points
         assert after_chain.points == next_chain.points
         assert blob.is_valid()
@@ -433,41 +429,61 @@ def test_get_chains_at_point():
 def test_remove_point_between_indexes():
     valid_blob_point_number = standard_valid_blob_point_number
     for point_index in range(valid_blob_point_number):
+        point_index+=0
         blob = create_valid_blob()
-        second_blob, chains = blob.spawn_small_blob(0)
-        _, next_index = blob.neighboring_indexes(point_index)
-        _, next_next_index = blob.neighboring_indexes(next_index)
-        point1 = blob.get_point(point_index)
-        point2 = blob.get_point(next_index)
-        point3 = blob.get_point(next_next_index)
+        second_blob, chains = blob.spawn_small_blob(7)
+        point_num_before_cut = blob.points_num
+        prev_index, next_index = blob.neighboring_indexes(point_index)
+        point1 = blob.get_point(prev_index)
+        point2 = blob.get_point(point_index)
+        point3 = blob.get_point(next_index)
+        common_chain = blob.get_points_common_chain(point_index, next_index)
         
-        removed_point = blob.remove_point(next_index)
-
-        assert blob.points_num == valid_blob_point_number - 1
-        assert blob.get_point(point_index) == point1
+        removed_point_chains_before_removal = point2.chains.copy()
+        removed_point = blob.remove_point(point_index)
+        new_blob_point_num = blob.points_num
+        assert blob.points_num == point_num_before_cut - 1
+        prev_index, _ = blob.neighboring_indexes(point_index)
+        next_index = point_index 
+        assert blob.get_point(prev_index) == point1
         assert               removed_point == point2
         assert  blob.get_point(next_index) == point3
 
         #it actually can be point1 or point3, depending on the implementaion,
-        #so if this is getting flagged, try chainging it. 
+        #so if this is getting flagged, try changing it. 
         #Though you really should know with which option you went.
-        assert all(chain in point1.chains for chain in removed_point.chains)
+        for chain in removed_point_chains_before_removal:
+            chain:Chain
+            if chain.points_number>0: 
+                assert chain in point3.chains
+            else:
+                assert chain is common_chain
         assert blob.is_valid(raise_errors=True)
         assert second_blob.is_valid(raise_errors=True)
         assert_references(blobs=[blob, second_blob])
 
 
 def assert_references(blobs:List[Blob] = [], chains: List[Chain] = [], points:List[Point] = []):
+    """checks that all existing references are mutual. Will not catch an error if the reference is absent from both sides. Flags only one-sided references."""
+    if blobs != []:
+        blob_chains = {chain for blob in blobs for chain in blob.chain_loop}
+        blob_chains.update(chains)
+        chains = list(blob_chains)
+
+    if chains != []:
+        chains_points = {point for chain in chains for point in chain.points}
+        chains_points.update(points)
+        points = list(chains_points)
+
+    #blob -> chain
     for blob in blobs:
         for chain in blob.chain_loop:
             cbr, cbl = chain.blob_right, chain.blob_left
             assert cbr == blob or cbl == blob
             #at least one of them is our blob.
             assert not cbr == cbl, f'both sides cannot be the same blob!' 
-        
-    if blobs != [] and chains == []:
-        chains = {chain for blob in blobs for chain in blob.chain_loop}
 
+    #chain -> blob
     for chain in chains:
         if chain.blob_right:
             assert chain in chain.blob_right.chain_loop
@@ -476,15 +492,12 @@ def assert_references(blobs:List[Blob] = [], chains: List[Chain] = [], points:Li
         if chain.blob_left and chain.blob_right:
             assert chain.blob_right != chain.blob_left
 
+    #chain -> point
     for chain in chains:
         for point in chain.points:
             assert chain in point.chains, f"Chain not found in point's chains set for point {point}"
     
-    # Create a set of all unique points
-    if chains != [] and points == []:
-        points = {point for chain in chains for point in chain.points}
-    
-    # Check each point
+    #point -> chain
     for point in points:
         for chain in point.chains:
             assert point in chain.points, f"Point {point} not found in chain's points"

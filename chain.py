@@ -43,6 +43,8 @@ class Chain:
     def from_point_list(cls, points:Sequence["Point"], color = None) -> "Chain":
         chain = cls(color)
         chain.points = points[:] #list soft copy 
+        for point in points:
+            point.chains.add(chain)
         return chain
     
     @classmethod
@@ -56,11 +58,8 @@ class Chain:
     @classmethod
     def from_end_points(cls, start:Point, end:Point, link_length:float = None, color= None, point_num:int=None):
         """either point_num or link_length must be specified. Point_num takes precidence"""
-        chain = cls()
-        if color:
-            chain.color = pygame.Color(color)
-        
-        chain.points.append(start)
+        points = []
+        points.append(start)
         chain_length = start.co.distance_to(end.co)
         if not point_num:
             point_num = math.ceil(chain_length/link_length)
@@ -68,8 +67,9 @@ class Chain:
             t = i/point_num
             inter = start.co.lerp(end.co, t)
             point = Point(inter.x, inter.y)
-            chain.points.append(point)
-        chain.points.append(end)
+            points.append(point)
+        points.append(end)
+        chain = cls.from_point_list(points, color)
         return chain 
 
     def apply_accumulated_offsets(self, ignore_unmoving_status = False):
@@ -129,7 +129,8 @@ class Chain:
                 a.add_offset(diff.x, diff.y)
                 b.add_offset(-diff.x, -diff.y)
     
-    def add_point(self, point:Point, append_to_start:bool):
+    def append_endpoint(self, point:Point, append_to_start:bool):
+        point.chains.add(self)
         if append_to_start:
             self.points.insert(0, point)
         else:
@@ -169,21 +170,35 @@ class Chain:
     def cut(self, point_index:int):
         if point_index <= 0 or point_index >= self.points_number - 1:
             raise ValueError("You are trying to cut too close to one of the ends of the chain. You are cutting at:", point_index, "While minimum is 1 and max is", self.points_number-2)
+        for point in self.points:
+            point.chains.remove(self)
 
         start_points =  self.points[:point_index+1]
+        for point in start_points:
+            point.chains.add(self)
         end_points =    self.points[point_index:]
+
         self.points = start_points
         chain_start = self
+        
         chain_end = Chain.from_point_list(points=end_points, color=self.color)
         chain_end.set_blobs(right=self.blob_right, left=self.blob_left)
 
         if not chain_start.is_connected_to(chain_end):
             raise RuntimeError()
+        
         return chain_start, chain_end
     
     def __str__(self) -> str:
+        if self.points_number==1:
+            return f'short Chain only one {self.point_start}'
+        if self.points_number == 0:
+            return f'empty Chain object'
         return f'Chain from {self.point_start} to {self.point_end} with {self.points_number-2} in between'
-    __repr__ = __str__
+    def __repr__(self):
+        obj_id = id(self)
+        hex_addr = hex(obj_id)[2:]  # Remove '0x' prefix
+        return f"<{str(self)} at 0x{hex_addr}>"
 
     def right_normal_at(self, point_index, normalize=False):
         i1 = max(0, point_index-1)
@@ -191,12 +206,14 @@ class Chain:
         p1 = self.points[i1]
         p2 = self.points[i2]
         diff = p2.co - p1.co
-        #rotation to the right by a right angle example:
+
+        #examples of rotation to the right by a right angle:
         # ( 1,-2) -> ( 2, 1)
         # ( 2, 1) -> (-1, 2)
+        #so in our coordinate system
         # ( x, y) -> (-y, x)
-
         rot = Vector2(-diff.y, diff.x)
+
         if(normalize):
             rot.normalize_ip()
         return rot
@@ -234,9 +251,36 @@ class Chain:
         next_point = self.points[next_index]
         mid_co = (point.co + next_point.co)/2
         midpoint = Point(mid_co.x, mid_co.y)
+        midpoint.chains.add(self)
         mid_offset = (point.offset + next_point.offset)/2
         midpoint.offset = mid_offset
         self.points.insert(point_index+1, midpoint)
         return midpoint
+    
+    def remove_point(self, point:int|Point):
+        if type(point) == int:
+            point_index = point
+            point = self.points.pop(point_index)
+        else:
+            point:Point
+            self.points.remove(point)
+        point.chains.remove(self)
+        return point
+    
+    def swap_point(self, point_to_remove:Point, point_to_insert:Point):
+        point_index = self.points.index(point_to_remove)
+        point_to_remove.chains.remove(self)
+        point_to_insert.chains.add(self)
+        self.points[point_index] = point_to_insert
+    
+    def unregister_from_blobs(self):
+        # pass
+        if self.blob_left is not None:
+            self.blob_left.chain_loop.remove(self)
+            self.blob_left = None
+        if self.blob_right is not None:
+            self.blob_right.chain_loop.remove(self)
+            self.blob_right = None
+
         
     

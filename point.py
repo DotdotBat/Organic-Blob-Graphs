@@ -3,6 +3,7 @@ class Point:
     def __init__(self, x, y) -> None:
         self.co = Vector2(x, y)
         self.offset = Vector2(0,0)
+        self.chains = set()
 
     def add_offset(self, x:float, y:float, multiplier=1):
         self.offset.x += x * multiplier
@@ -22,8 +23,9 @@ class Point:
         co = point.co + offset
         return cls(co.x, co.y)
     
-    def clamp_offset(self, max_offset_magnitude):
-        raise NotImplementedError()
+    def clamp_offset(self, clamp_value):
+        if self.offset.length_squared() > clamp_value*clamp_value:
+            self.offset.scale_to_length(clamp_value)
     
-    chains:set
+    chains= set()
     
