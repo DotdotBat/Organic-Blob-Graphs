@@ -21,7 +21,7 @@ def test_points_number():
     p1 =Point(0, 0)
     p2 = Point(1, 1)
     c = Chain.from_point_list([p1, p2])
-    assert c.points_number == 2
+    assert c.point_number == 2
 
 def test_from_point_list():
     p1 = Point(0, 0)
@@ -161,7 +161,7 @@ from blob_test import create_valid_blob
 def test_get_on_blob_point_index():
     blob = create_valid_blob()
     for chain in blob.chain_loop:
-        for i in range(chain.points_number):
+        for i in range(chain.point_number):
             blob_point_index = chain.get_on_blob_point_index(blob, i)
             chain_point = chain.points[i]
             blob_point = blob.get_point(blob_point_index)
@@ -179,7 +179,7 @@ def test_insert_midpoint():
         next_i = i+1
         point2 = chain.points[next_i]
         midpoint = chain.create_midpoint(i, next_i)
-        assert chain.points_number == chain_points_number + 1
+        assert chain.point_number == chain_points_number + 1
         expected_midpoint_co = (point1.co + point2.co) / 2
         
         #vectors and approx don't work together. compare x and y seperately
@@ -187,7 +187,7 @@ def test_insert_midpoint():
         assert midpoint.co.y == pytest.approx(expected_midpoint_co.y)
         assert chain.points[i]     == point1
         assert chain.points[i + 1] == midpoint
-        next_i = (i+2)% chain.points_number
+        next_i = (i+2)% chain.point_number
         assert chain.points[next_i] == point2
         
 import pytest
@@ -246,5 +246,6 @@ def test_point_chains_references_management():
     assert chain2a in chains
     assert_references(chains=chains)
     assert_references(points= points)
+
 
 

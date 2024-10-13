@@ -9,7 +9,9 @@ class Point:
         self.offset.x += x * multiplier
         self.offset.y += y * multiplier
     
-    def apply_accumulated_offset(self):
+    def apply_accumulated_offset(self, ignore_unmoving = False):
+        if (not ignore_unmoving) and self.is_unmoving:
+            return
         self.co+=self.offset
         self.offset.update(0,0)
 
@@ -27,5 +29,14 @@ class Point:
         if self.offset.length_squared() > clamp_value*clamp_value:
             self.offset.scale_to_length(clamp_value)
     
+    @property
+    def is_unmoving(self):
+        return any(chain.is_unmoving for chain in self.chains)
+    
     chains= set()
+
+    def mutually_repel(self, other:"Point", distance:int):
+        """try to move both points away from each other so that they will be a given distance apart"""
+        
+        raise NotImplementedError()
     

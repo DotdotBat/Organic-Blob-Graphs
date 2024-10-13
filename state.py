@@ -1,27 +1,28 @@
+import math
 from chain import Chain
-from typing import List
-from typing import Set
+from typing import Set, List
 from blob import Blob
 from point import Point
 
-width = 1280
-height = 720
+width = 720
+height = 480
 chains: Set[Chain] = set()
-areas = []
-min_length = min(width, height)
-resolution = min_length /100
-min_thinkness = min_length/10
-
-blobs_num = 3
-blob_circumference = min_length
-
-def ensure_chains_registered(check_chains:List[Chain]):
-    chains.update(check_chains)
-    
-    for chain in chains:
-            if not isinstance(chain, Chain):
-                raise RuntimeError(chain)
+blobs: List[Blob] = list()
+lesser_dimention = min(width, height)
+resolution = lesser_dimention/100
+link_length = resolution
+min_thinkness=lesser_dimention/10
+goal_blobs_num = 10
+expected_blob_area = width * height/goal_blobs_num
+square_cirumference =  math.sqrt(expected_blob_area)*4
+goal_blob_circumference = square_cirumference * 1.5
+goal_blob_point_number = math.ceil(goal_blob_circumference/link_length)
 
 frame_count = 0
-outer_blob:Blob
-inner_point = Point(width/2, height/2)
+
+point_of_interest = Point(width*2, height*2)
+
+def get_movable_chains():
+    return [chain for chain in chains if not chain.is_unmoving]
+
+show_hero_point = False

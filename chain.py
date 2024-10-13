@@ -30,7 +30,7 @@ class Chain:
         self.points[-1] = point
 
     @property
-    def points_number(self) -> int:
+    def point_number(self) -> int:
         return len(self.points)
 
     points:List["Point"]
@@ -77,7 +77,7 @@ class Chain:
             if self.is_unmoving:
                 return
         for point in self.points:
-            point.apply_accumulated_offset()
+            point.apply_accumulated_offset(ignore_unmoving=ignore_unmoving_status)
 
 
 
@@ -104,7 +104,7 @@ class Chain:
         if not ignore_umoving_status:
             if self.is_unmoving:
                 return
-        for i in range(self.points_number-1):
+        for i in range(self.point_number-1):
             a = self.points[i]
             b = self.points[i+1]
             correction = b.co - a.co
@@ -119,7 +119,7 @@ class Chain:
         if self.is_unmoving:
             return
         hop_num = math.ceil( distance/link_length)
-        for i in range(self.points_number-hop_num):
+        for i in range(self.point_number-hop_num):
             a = self.points[i]
             b = self.points[i+hop_num]
             diff = b.co - a.co
@@ -163,13 +163,13 @@ class Chain:
 
     @property
     def is_unmoving(self)->bool:
-        if self.blob_left == None or self.blob_right == None:
+        if self.blob_left is None or self.blob_right is None:
             return True
         return self.blob_left.is_unmoving or self.blob_right.is_unmoving     
     
     def cut(self, point_index:int):
-        if point_index <= 0 or point_index >= self.points_number - 1:
-            raise ValueError("You are trying to cut too close to one of the ends of the chain. You are cutting at:", point_index, "While minimum is 1 and max is", self.points_number-2)
+        if point_index <= 0 or point_index >= self.point_number - 1:
+            raise ValueError("You are trying to cut too close to one of the ends of the chain. You are cutting at:", point_index, "While minimum is 1 and max is", self.point_number-2)
         for point in self.points:
             point.chains.remove(self)
 
@@ -190,11 +190,11 @@ class Chain:
         return chain_start, chain_end
     
     def __str__(self) -> str:
-        if self.points_number==1:
+        if self.point_number==1:
             return f'short Chain only one {self.point_start}'
-        if self.points_number == 0:
+        if self.point_number == 0:
             return f'empty Chain object'
-        return f'Chain from {self.point_start} to {self.point_end} with {self.points_number-2} in between'
+        return f'Chain from {self.point_start} to {self.point_end} with {self.point_number-2} in between'
     def __repr__(self):
         obj_id = id(self)
         hex_addr = hex(obj_id)[2:]  # Remove '0x' prefix
@@ -202,7 +202,7 @@ class Chain:
 
     def right_normal_at(self, point_index, normalize=False):
         i1 = max(0, point_index-1)
-        i2 = min(point_index+1, self.points_number-1)
+        i2 = min(point_index+1, self.point_number-1)
         p1 = self.points[i1]
         p2 = self.points[i2]
         diff = p2.co - p1.co
@@ -222,7 +222,11 @@ class Chain:
         if not ignore_umoving_status:
             if self.is_unmoving:
                 return
+        
         for i, p in enumerate(self.points):
+            if (p == self.point_start or p == self.point_end):
+                if p.is_unmoving and not ignore_umoving_status:
+                    continue
             n = self.right_normal_at(i)
             n.scale_to_length(offset_magnitude)
             p.add_offset(n.x, n.y)    
@@ -234,12 +238,12 @@ class Chain:
         for chain in blob.chain_loop:
             if chain == self:
                 break
-            point_count+= chain.points_number - 1
+            point_count+= chain.point_number - 1
         
         if not is_flipped:
             blob_point_index = point_count + chain_point_index
         else:
-            blob_point_index = point_count + chain.points_number - 1 - chain_point_index
+            blob_point_index = point_count + chain.point_number - 1 - chain_point_index
         return blob_point_index    
     
     def create_midpoint(self, point_index:int, next_index:int):

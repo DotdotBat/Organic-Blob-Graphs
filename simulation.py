@@ -1,125 +1,85 @@
+import pygame
+import math
 from typing import List
 import state
 from state import chains
-import math
 from chain import Chain
-import random
 from point import Point
 from blob import Blob
-
-test_chain = Chain()
-
-
-from tests.blob_test import create_valid_blob
-
 def setup():
-    blob_point_num = 3 + 4 + 5 + 6 - 4
-    p1 = Point(0, 0)
-    p2 = Point(0, 100)
-    p3 = Point(100, 100)
-    p4 = Point(100, 0)
-    chain1 = Chain.from_end_points(p1, p2, point_num= 3)
-    chain2 = Chain.from_end_points(p2, p3, point_num= 4)
-    chain3 = Chain.from_end_points(p4, p3, point_num= 5)
-    chain4 = Chain.from_end_points(p4, p1, point_num= 6)
-    big_blob = Blob.from_chain_loop([chain1, chain2, chain3, chain4])
-    small_blob, all_chains = big_blob.spawn_small_blob(0)
-    all_chains = set(big_blob.chain_loop + small_blob.chain_loop)
-    state.areas.append(big_blob)
-    state.areas.append(small_blob)
-    state.chains.update(all_chains)
-
+    first_blob = create_frame_blob(state.width, state.height)
+    if type(first_blob) != Blob:
+            raise RuntimeError("this isn't a Blob", first_blob)
+    state.blobs.append(first_blob)
     
-
-link_length = state.resolution
-
-angle_enforcing_distance = state.min_thinkness
-
 hero_point = Point(0, 0)
-frame_count = 0
 def simulate(dt:float):
-    # if len(state.areas) < state.blobs_num:
-    #     spawn_blob_in_largest_blob()
-    
-    # for blob in state.areas:
-    #     blob.recalculate_area()
-    
-            
-    # for chain in chains:
-    #     chain.enforce_link_length(link_length=state.resolution)
-    # for chain in chains:
-    #     chain.enforce_minimum_secondary_joint_distance(angle_enforcing_distance, link_length=state.resolution)
-    # for chain in chains:
-    #     chain.apply_accumulated_offsets()
-
     state.frame_count+=1
-    point_index = math.floor(state.frame_count/5)
-    blob = state.areas[0]
-    blob:Blob
-    on_blob_point = blob.get_point(point_index)
-    inner_direction = blob.get_inner_direction(point_index)
-    inner_direction.scale_to_length(10)
-    state.inner_point.co = on_blob_point.co + inner_direction
+    #blob spawning
+    if state.frame_count%50 == 0 and len(state.blobs) < state.goal_blobs_num:
+        spawn_blob_in_largest_blob()
+
+    movable_chains = state.get_movable_chains()
+
+    #link_length and curve
+    for chain in movable_chains:
+        chain.enforce_link_length(link_length=state.link_length)
+        chain.enforce_minimum_secondary_joint_distance(distance=state.link_length*4, link_length=state.link_length)
+    
+    #area equalization
+    add_area_equalization_offset(movable_chains)
+    
+    # circumference equalization
+    for chain in movable_chains:
+        if chain.blob_left.point_number * chain.blob_right.point_number < state.goal_blob_point_number*state.goal_blob_point_number:
+            point_i = math.floor((chain.point_number-1)/2)
+            chain.create_midpoint(point_index=point_i, next_index=point_i+1)    
+    
+    # clamp offsets
+    for chain in state.chains:
+        for point in chain.points:
+            point.clamp_offset(state.resolution)
+
+    for chain in state.chains:
+        chain.apply_accumulated_offsets()
+
+def add_area_equalization_offset(movable_chains: List[Chain]):
+    for blob in state.blobs:
+        blob.recalculate_area()
+    for chain in movable_chains:
+        max_offset = state.resolution*2
+        left_area, right_area = chain.blob_left.cashed_area, chain.blob_right.cashed_area
+        scale = 1 - (min(left_area, right_area) / max(left_area, right_area))
+
+        offset_magnitude = scale * max_offset
+        if right_area < left_area:
+            chain.add_right_offset(-offset_magnitude)
+        if left_area < right_area:
+            chain.add_right_offset(offset_magnitude)
+        chain.color = (255, (1-scale) * 225,  (1-scale) * 225)
         
 
 def spawn_blob_in_largest_blob():
     big_blob = find_largest_blob()
     new_blob, chains_to_register = big_blob.spawn_small_blob()
-    state.ensure_chains_registered(chains_to_register)
-    
-    state.areas.append(new_blob)
-    return new_blob
+    state.chains.update(chains_to_register)
+    state.blobs.append(new_blob)
     
 def find_largest_blob():
-    largest_blob_so_far = state.areas[0]
-    for blob in state.areas:
+    largest_blob_so_far = state.blobs[0]
+    for blob in state.blobs:
         blob:Blob
-        if blob.points_num > largest_blob_so_far.points_num:
+        if blob.point_number > largest_blob_so_far.point_number:
             largest_blob_so_far = blob
-    return largest_blob_so_far
+    return largest_blob_so_far    
 
-def spawn_first_and_outer_blob():
-    margin = 10
-    link_length = state.resolution
+
+def create_frame_blob(width:float, height:float, margin=5)->Blob:
     m = margin
-    w = state.width
-    h = state.height
-    top_left = Point(m,m)
-    top_right = Point(w-m, m)
-    bottom_left = Point(m, h - m)
-    bottom_right = Point(w - m, h - m)
-    top = Chain.from_end_points(
-        start = top_left, end = top_right,
-        link_length = link_length, color= "gray"
-    )
-    left = Chain.from_end_points(
-        start = bottom_left, end = top_left,
-        link_length = link_length, color= "gray"
-    )
-    bottom = Chain.from_end_points(
-        start = bottom_right, end = bottom_left,
-        link_length = link_length, color= "gray"
-    )
-    right = Chain.from_end_points(
-        start = top_right, end = bottom_right,
-        link_length = link_length, color= "gray"
-    )
-    first_blob = Blob.from_chain_loop(
-        ccw_chain_loop= [top, left, bottom, right]
-    )
-    outer_blob = Blob.from_chain_loop(
-        ccw_chain_loop= [right, bottom, left, top], is_outer=True
-    )
-    state.chains.update([top, left, bottom, right])
-    state.areas.append(first_blob)
-    state.outer_blob = outer_blob
-    
-    
-    outer_blob.is_unmoving = True
-    return first_blob, outer_blob
-
-def add_blob_area_equalization_offset(chains:List[Chain]):
-    for chain in chains:
-        if not chain.is_unmoving:
-            offset = 10 if chain.blob_left.area<chain.blob_right.area else -10
-            chain.add_right_offset(offset)
+    tl, tr, br, bl = Point(m, m), Point(width-m, m), Point(width-m,height-m), Point(m, height-m)
+    top =    Chain.from_end_points(tl, tr, link_length=state.resolution)
+    bottom = Chain.from_end_points(bl, br, link_length=state.resolution)
+    left =   Chain.from_end_points(tl, bl, link_length=state.resolution)
+    right =  Chain.from_end_points(tr, br, link_length=state.resolution)
+    chain_loop = [top, left, bottom, right]
+    return Blob.from_chain_loop(chain_loop)

@@ -33,7 +33,7 @@ def test_points_num():
     chain2 = Chain.from_point_list([p2, p3, p1])
     
     blob = Blob.from_chain_loop([chain1, chain2])
-    assert blob.points_num == 3  # 3 unique points
+    assert blob.point_number == 3  # 3 unique points
 
 def test_get_point():
     p1 = Point(0, 0)
@@ -50,7 +50,7 @@ def test_get_point():
 
 def test_demo_get_chain_and_on_chain_point_index_at():
     blob = create_valid_blob()
-    for i in range(blob.points_num):
+    for i in range(blob.point_number):
         demo_chain, demo_chain_point_i = blob.get_chain_and_on_chain_point_index_at(i)
         demo_point = demo_chain.points[demo_chain_point_i]
         chain, chain_point_i = blob.get_chain_and_on_chain_point_index_at(i)
@@ -105,7 +105,7 @@ def test_cut_at():
         if not blob.is_intersection_at(cut_location):
             expected_chains_amount += 1
         prev_chain, next_chain = blob.cut_at(cut_location)
-        assert blob.points_num == standard_valid_blob_point_number, "the cut operation should not change point number"
+        assert blob.point_number == standard_valid_blob_point_number, "the cut operation should not change point number"
         assert blob.is_intersection_at(cut_location)
         cut_point = blob.get_point(cut_location)
         assert prev_chain.common_endpoint(next_chain) == cut_point
@@ -173,7 +173,7 @@ def test_get_chains_between_intersections():
 def test_is_intersection_at():
     blob = create_valid_blob()
     intersections = [0] + blob.intersection_indexes
-    for i in range(blob.points_num):
+    for i in range(blob.point_number):
         if i in intersections:
             assert blob.is_intersection_at(i) is True
         else:
@@ -312,12 +312,12 @@ def test_area_is_independent_of_blob_orientation():
     assert blob_ccw.is_clockwise() is True
     blob_cw.recalculate_area()
     blob_ccw.recalculate_area()
-    assert blob_cw.area == 1.0 
-    assert blob_ccw.area == 1.0 
+    assert blob_cw.cashed_area == 1.0 
+    assert blob_ccw.cashed_area == 1.0 
 
     blob = create_valid_blob()
     blob.recalculate_area()
-    assert blob.area == pytest.approx(100*100)
+    assert blob.cashed_area == pytest.approx(100*100)
 
 def test_calculate_area_single_chain():
     p1 = Point(0, 0)
@@ -327,7 +327,7 @@ def test_calculate_area_single_chain():
     
     blob = Blob.from_chain_loop([chain,niahc])
     blob.recalculate_area()
-    blob.area== 0.0  # No area for a line
+    blob.cashed_area== 0.0  # No area for a line
 
 
 
@@ -354,7 +354,7 @@ def test_get_intersections():
     assert len(intersections) == 4
     print(intersections)
     assert intersections == [2, 5, 9, 14]
-    assert blob.points_num == intersections[-1]
+    assert blob.point_number == intersections[-1]
 
 def test_create_point_between_indexes():
     valid_blob_point_number = standard_valid_blob_point_number
@@ -367,7 +367,7 @@ def test_create_point_between_indexes():
         new_point = blob.create_midpoint(point_index, next_index)
         
         # Check that the number of points increased by one
-        assert blob.points_num == valid_blob_point_number + 1
+        assert blob.point_number == valid_blob_point_number + 1
         
         # Check that the new point is approximately in the middle
         expected_midpoint_co = (point1.co + point2.co) / 2
@@ -385,13 +385,13 @@ def test_create_point_between_indexes():
 def test_get_chain_and_indexes_of_neighbors():
     blob = create_valid_blob()
     
-    for point_index in range(blob.points_num):
-        next_index = (point_index + 1) % blob.points_num
+    for point_index in range(blob.point_number):
+        next_index = (point_index + 1) % blob.point_number
         chain, index1, index2 = blob.get_chain_and_indexes_of_neighbors(point_index, next_index)
         assert index1 >= 0
         assert index2 >= 0
-        assert index1 < chain.points_number
-        assert index2 < chain.points_number
+        assert index1 < chain.point_number
+        assert index2 < chain.point_number
         point1_blob = blob.get_point(point_index)
         point2_blob = blob.get_point(next_index)
         point1_chain = chain.points[index1]
@@ -402,8 +402,8 @@ def test_get_chain_and_indexes_of_neighbors():
 
 def test_get_points_common_chain():
     blob = create_valid_blob()
-    for point_index in range(blob.points_num):
-        next_index = (point_index + 1) % blob.points_num     
+    for point_index in range(blob.point_number):
+        next_index = (point_index + 1) % blob.point_number     
         common_chain = blob.get_points_common_chain(point_index, next_index)
         point1 = blob.get_point(point_index)
         point2 = blob.get_point(next_index)
@@ -414,7 +414,7 @@ def test_get_points_common_chain():
 def test_get_chains_at_point():
     blob = create_valid_blob()
     intersections = [0] + blob.intersection_indexes
-    for point_index in range(blob.points_num):
+    for point_index in range(blob.point_number):
         chains_at_point = blob.get_chains_at_point(point_index)
         if point_index in intersections:
             assert len(chains_at_point) == 2
@@ -432,7 +432,7 @@ def test_remove_point_between_indexes():
         point_index+=0
         blob = create_valid_blob()
         second_blob, chains = blob.spawn_small_blob(7)
-        point_num_before_cut = blob.points_num
+        point_num_before_cut = blob.point_number
         prev_index, next_index = blob.neighboring_indexes(point_index)
         point1 = blob.get_point(prev_index)
         point2 = blob.get_point(point_index)
@@ -441,8 +441,8 @@ def test_remove_point_between_indexes():
         
         removed_point_chains_before_removal = point2.chains.copy()
         removed_point = blob.remove_point(point_index)
-        new_blob_point_num = blob.points_num
-        assert blob.points_num == point_num_before_cut - 1
+        new_blob_point_num = blob.point_number
+        assert blob.point_number == point_num_before_cut - 1
         prev_index, _ = blob.neighboring_indexes(point_index)
         next_index = point_index 
         assert blob.get_point(prev_index) == point1
@@ -454,7 +454,7 @@ def test_remove_point_between_indexes():
         #Though you really should know with which option you went.
         for chain in removed_point_chains_before_removal:
             chain:Chain
-            if chain.points_number>0: 
+            if chain.point_number>0: 
                 assert chain in point3.chains
             else:
                 assert chain is common_chain
@@ -504,3 +504,34 @@ def assert_references(blobs:List[Blob] = [], chains: List[Chain] = [], points:Li
 
     if points == []:
         raise RuntimeError()
+    
+
+def test_index_distance():
+    blob = create_valid_blob()
+    assert blob.index_distance(0, 1) == 1
+    assert blob.index_distance(1, 0) == 1
+    assert blob.index_distance(0, blob.point_number - 1) == 1
+    assert blob.index_distance(0, 0) == 0
+
+def test_circumference_distance():
+    link_length = 10
+    blob = create_valid_blob()
+    assert blob.circumference_distance(0, 1, link_length) == link_length
+    assert blob.circumference_distance(1, 0, link_length) == link_length
+    assert blob.circumference_distance(0, blob.point_number - 1, link_length) == link_length
+    assert blob.circumference_distance(0, 0, link_length) == 0
+
+def test_points_distance():
+    
+    blob = create_valid_blob()
+    point_a = blob.get_point(0)
+    point_b = blob.get_point(1)
+    point_a.co.x = 0
+    point_a.co.y = 0
+    point_b.co.x = 3
+    point_b.co.y = 4
+    assert blob.points_distance(0, 1) == 5
+    assert blob.points_distance(1, 0) == 5
+    assert blob.points_distance(0, 0) == 0
+
+

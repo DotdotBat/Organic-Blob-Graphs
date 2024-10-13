@@ -7,6 +7,7 @@ import random
 from list_util import rotate_list
 
 class Blob:
+    """Blob is a a data structure holding a chain loop. Each chain consists of points. So you can think of blobs as a point rings. Chains can be forward or backward depending on whether their inner order of points aligns with the blob's chain loop. Or you can think of blobs as a representaion of 2d bubbles, where chains are the shared edges between the bubbles."""
     def __init__(self) -> None:
         self.chain_loop = list()
     
@@ -47,7 +48,7 @@ class Blob:
         return indexes
 
     @property
-    def points_num(self)->int:
+    def point_number(self)->int:
         sum = 0
         for chain in self.chain_loop:
             sum+= len(chain.points)
@@ -59,7 +60,7 @@ class Blob:
     is_unmoving = False
 
     def get_chain_and_on_chain_point_index_at(self, point_index)->tuple[Chain, int]:
-        point_index %= self.points_num
+        point_index %= self.point_number
         intersections = [0] + self.intersection_indexes
         #find chain index using the intersections
         chain_index = 0
@@ -76,7 +77,7 @@ class Blob:
         chain = self.chain_loop[chain_index]
         return chain, chain_point_i
 
-    def get_point(self, point_index:int):
+    def get_point(self, point_index:int)->Point:
         chain, on_chain_point_index = self.get_chain_and_on_chain_point_index_at(point_index)
         return chain.points[on_chain_point_index]
 
@@ -118,9 +119,9 @@ class Blob:
             A list of chains to be updated : List[Chain]
             """
         if spawn_location == None:
-            spawn_location = random.randint(0, self.points_num)
+            spawn_location = random.randint(0, self.point_number)
         #consider picking a random chain intersection instead of a random point. 
-        spawn_location %= self.points_num
+        spawn_location %= self.point_number
         inset = self.get_inner_direction(spawn_location)
         s = self.get_point(spawn_location+1)
         self.cut_at(spawn_location+1)
@@ -168,14 +169,14 @@ class Blob:
                 
     
     def is_intersection_at(self, point_index):
-        point_index %= self.points_num
+        point_index %= self.point_number
         point_count = 0
         for chain in self.chain_loop:
             if point_count == point_index:
                 return True
             if point_count > point_index:
                 return False
-            point_count+= chain.points_number - 1
+            point_count+= chain.point_number - 1
         return False
     
     def cut_at(self, point_index):
@@ -199,7 +200,7 @@ class Blob:
         return chain_start, chain_end
     
     def get_chains_indexes_at_intersection(self, point_index:int):
-        point_index %= self.points_num
+        point_index %= self.point_number
         p_i = len(self.chain_loop) - 1
         # if point_index==self.points_num:
         #     return (p_i, 0)
@@ -208,7 +209,7 @@ class Blob:
             if point_index == point_count:
                 return (p_i, n_i)
             p_i = n_i
-            point_count+=next_chain.points_number - 1
+            point_count+=next_chain.point_number - 1
         raise ValueError("this place should not be reached at runtime")
 
     def get_chains_at_intersection(self, point_index:int):
@@ -274,6 +275,62 @@ class Blob:
 
         self.chain_loop = chlp[:]
 
+    def are_all_references_mutual(self, raise_errors=False):
+        chains = self.chain_loop
+        chains_points = {point for chain in chains for point in chain.points}
+        points = list(chains_points)
+
+        # Blob -> Chain
+        for chain in self.chain_loop:
+            cbr, cbl = chain.blob_right, chain.blob_left
+            if not (cbr == self or cbl == self):
+                if raise_errors:
+                    raise ValueError("Chain blob references are incorrect", chain)
+                return False
+            if cbr == cbl:
+                if raise_errors:
+                    raise ValueError("Both sides cannot be the same blob", chain)
+                return False
+
+        # Chain -> Blob
+        for chain in chains:
+            if chain.blob_right and chain not in chain.blob_right.chain_loop:
+                if raise_errors:
+                    raise ValueError("Chain is not in blob_right's chain loop", chain)
+                return False
+            if chain.blob_left and chain not in chain.blob_left.chain_loop:
+                if raise_errors:
+                    raise ValueError("Chain is not in blob_left's chain loop", chain)
+                return False
+            if chain.blob_left and chain.blob_right and chain.blob_right == chain.blob_left:
+                if raise_errors:
+                    raise ValueError("Blob right and left are the same", chain)
+                return False
+
+        # Chain -> Point
+        for chain in chains:
+            for point in chain.points:
+                if chain not in point.chains:
+                    if raise_errors:
+                        raise ValueError("Chain not found in point's chains set", point)
+                    return False
+
+        # Point -> Chain
+        for point in points:
+            for chain in point.chains:
+                if point not in chain.points:
+                    if raise_errors:
+                        raise ValueError("Point not found in chain's points", point)
+                    return False
+
+        if not points:
+            if raise_errors:
+                raise RuntimeError("No points found in chains")
+            return False
+
+        return True
+
+
     def is_valid(self, raise_errors = False):
         #todo: refactor into separate functions
         re = raise_errors
@@ -282,7 +339,7 @@ class Blob:
             return False
         
         for chain in self.chain_loop:
-            if chain.points_number < 2:
+            if chain.point_number < 2:
                 if re: raise RuntimeError("Chain is too short", chain)
                 return False
         
@@ -335,13 +392,15 @@ class Blob:
                 if re: raise ValueError("on chain references are incorrectly set", chain, self)
                 return False 
 
+        if not self.are_all_references_mutual():
+            return False
         return True
     
-    area: float
+    cashed_area: float
     def recalculate_area(self):
         area = 0 
-        for i in range(self.points_num):
-            next_i = (i + 1) % self.points_num
+        for i in range(self.point_number):
+            next_i = (i + 1) % self.point_number
             p1 = self.get_point(i)
             p2 = self.get_point(next_i)
             x1 = p1.co.x
@@ -350,7 +409,7 @@ class Blob:
             y2 = p2.co.y
             area += x1 * y2 - x2 * y1
         area/=2
-        self.area =  abs(area)
+        self.cashed_area =  abs(area)
 
     def set_blob_reference_on_chains(self):
         cw = self.is_clockwise()
@@ -376,7 +435,7 @@ class Blob:
         low_i = iis[chain_index]
         high_i = iis[chain_index+1]
         if next_i == 0:
-            next_i = self.points_num
+            next_i = self.point_number
         if not self.is_chain_backwards(chain_index):
             chain_point_i = point_i - low_i
             chain_next_point_i = next_i - low_i
@@ -387,7 +446,7 @@ class Blob:
         return chain, chain_point_i, chain_next_point_i
 
     def get_chains_indexes_at_point(self, point_index):
-        point_index %= self.points_num
+        point_index %= self.point_number
         intersections = [0] + self.intersection_indexes
         if point_index in intersections:
             chain1_i, chain2_i =  self.get_chains_indexes_at_intersection(point_index)
@@ -420,8 +479,8 @@ class Blob:
         return self.chain_loop[chain_index]
     
     def neighboring_indexes(self, point_index:int)->tuple[int, int]:
-        prev_index = (point_index - 1)% self.points_num
-        next_index = (point_index + 1)% self.points_num
+        prev_index = (point_index - 1)% self.point_number
+        next_index = (point_index + 1)% self.point_number
         return prev_index, next_index
         
     def remove_point(self, point_index):
@@ -441,7 +500,7 @@ class Blob:
             chain:Chain
             if chain == common_chain:
                 common_chain.remove_point(point)
-                if common_chain.points_number < 2:
+                if common_chain.point_number < 2:
                     common_chain.remove_point(next_point)
                     common_chain.unregister_from_blobs()
 
@@ -449,12 +508,14 @@ class Blob:
                 chain.swap_point( point_to_remove=point, point_to_insert=next_point)
         return point
     
-    def find_biggest_gap_indexes(self):
+    def find_biggest_gap_indexes(self, only_movable_chains = True):
         biggest_gap = 0
-        for point_index in range(self.points_num):
+        for point_index in range(self.point_number):
             _, next_index = self.neighboring_indexes(point_index)
             point = self.get_point(point_index)
             next_point = self.get_point(next_index)
+            if only_movable_chains and point.is_unmoving and next_point.is_unmoving:
+                continue
             gap = point.co.distance_squared_to(next_point.co)
             if gap > biggest_gap:
                 i = point_index
@@ -464,7 +525,7 @@ class Blob:
     
     def find_most_crowded_point_index(self):
         smallest_sum = math.inf
-        for point_index in range(self.points_num):
+        for point_index in range(self.point_number):
             prev_index, next_index = self.neighboring_indexes(point_index)
             prev_point = self.get_point(prev_index)
             point = self.get_point(point_index)
@@ -477,7 +538,99 @@ class Blob:
                 smallest_sum = sum
         return i
 
+    def modify_point_number(self, delta_num):
+        if self.point_number<=3 and delta_num<0:
+                    return
 
+        iteration_number = abs(delta_num)
+        for _ in range(iteration_number):
+            if delta_num > 0:
+                point_index, next_index = self.find_biggest_gap_indexes()
+                self.create_midpoint(point_index, next_index)
+            else:
+                point_index = self.find_most_crowded_point_index()
+                self.remove_point(point_index)
 
+    def enforce_minimal_width(self, minimal_width, link_length):
+        #todo: repeat until cannot find minimum width
+        circumference_distance_of_neigbors_to_ignore = minimal_width*2
+        indexes_difference = math.ceil(circumference_distance_of_neigbors_to_ignore/link_length)
+        if indexes_difference*2 >= self.point_number:
+            minimal_width = self.point_number*link_length/(math.pi * 2)
+            indexes_difference = (self.point_number//2) - 1
+        index_a, index_b = self.find_local_minimum_width_pair(qualifying_width=minimal_width, max_indexes_difference=indexes_difference,link_length=link_length, steps_number = 4)
+        if index_a == -1: #code for - "didn't found a qualifying local minimum"
+            return
+
+        point_a, point_b = self.get_point(index_a), self.get_point(index_b)
+        point_a.mutually_repel(point_b, distance = minimal_width)
+        #propogate from them
+        def pair_indexes_next_to_the(a:int, b:int, left=False, right=False):
+            prev_a, next_a = self.neighboring_indexes(a)
+            prev_b, next_b = self.neighboring_indexes(b)
+            if left: return prev_a, next_b
+            if right: return next_a, prev_b
+        left_a, left_b = pair_indexes_next_to_the(left=True, a=index_a, b=index_b)
+        right_a, right_b = pair_indexes_next_to_the(right=True, a=index_a, b=index_b)
+        move_to_the_left = self.index_distance(left_a, left_b)>indexes_difference and self.points_distance(left_a, left_b)<minimal_width
+        move_to_the_right = self.index_distance(right_a, right_b)>indexes_difference and self.points_distance(right_a, right_b)<minimal_width
         
+        while move_to_the_left:
+            point_a, point_b = self.get_point(left_a), self.get_point(left_b)
+            point_a.mutually_repel(point_b, distance = minimal_width)
+            left_a, left_b = pair_indexes_next_to_the(left=True, a=left_a, b=left_b)
+            move_to_the_left = self.index_distance(left_a, left_b)>indexes_difference and self.points_distance(left_a, left_b)<minimal_width
+
+        while move_to_the_right:
+            point_a, point_b = self.get_point(right_a), self.get_point(right_b)
+            point_a.mutually_repel(point_b, distance = minimal_width)
+            right_a, right_b = pair_indexes_next_to_the(right=True, a=index_a, b=index_b)
+            move_to_the_right = self.index_distance(right_a, right_b)>indexes_difference and self.points_distance(right_a, right_b)<minimal_width
+
+    def index_distance(self, index_a:int, index_b:int):
+        """given the indexes of two points returns the shortest of the two distances between them in index difference"""
+        normal_difference = abs(index_a - index_b)
+        round_about_difference = self.point_number-normal_difference
+        return min(normal_difference, round_about_difference)
+
+    def circumference_distance(self, index_a:int, index_b:int, link_length):
+        """given the indexes of two points returns the shortest of the two distances along the circumference of the blob (like arcs)"""
+        return link_length * self.index_distance(index_a, index_b)
+    
+    def points_distance(self, point_index, other_index):
+        """given the indexes of two points returns the spacial distance between them"""
+        point, other = self.get_point(point_index), self.get_point(other_index)
+        return point.co.distance_to(other.co)
+    
+    def find_local_minimum_width_pair(self, qualifying_width:float, max_indexes_difference:int,link_length:float, steps_number:int):
+        """returns a pair of indexes of two points that are closer than a minimal width, while not being closer than an index difference apart.
+        if no qualifying pair is found returns -1, -1"""
+        #todo: repeat for samples number
+        #pick a start pair of points
+        point_index = random.randint(a=0, b=self.point_number-1)
+        other_index = (point_index + self.point_number//2) % self.point_number
+
+        for _ in range(steps_number):
+            smallest_width = self.points_distance(point_index, other_index)
+            step = 1 if smallest_width<qualifying_width else math.ceil((smallest_width - qualifying_width)/link_length)
+            point_side_indexes = [point_index, (point_index-step)%self.point_number, (point_index+step)%self.point_number]
+            other_side_indexes = [other_index, (other_index-step)%self.point_number, (other_index+step)%self.point_number]
+            candidate_pairs = [(a, b) for a in point_side_indexes for b in other_side_indexes]
+            candidate_pairs.remove((point_index, other_index))#we need only new candidates
+            for a, b in candidate_pairs:
+                index_distance = self.index_distance(a, b)
+                width = self.points_distance(a,b)
+                if index_distance>max_indexes_difference and width<smallest_width:
+                    point_index = a
+                    other_index = b
+                    smallest_width = width
+        if smallest_width > qualifying_width:
+            return -1, -1
+        else:
+            return point_index, other_index
+
+
+    
+
+
         
