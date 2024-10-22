@@ -11,10 +11,13 @@ def setup():
     if type(first_blob) != Blob:
             raise RuntimeError("this isn't a Blob", first_blob)
     state.blobs.append(first_blob)
+    state.chains.update(first_blob.chain_loop)
+    state.point_of_interest = Point(x=state.width/2, y=state.height/2)
     
 hero_point = Point(0, 0)
 def simulate(dt:float):
     state.frame_count+=1
+
     #blob spawning
     if state.frame_count%50 == 0 and len(state.blobs) < state.goal_blobs_num:
         spawn_blob_in_largest_blob()
@@ -29,7 +32,11 @@ def simulate(dt:float):
     #area equalization
     add_area_equalization_offset(movable_chains)
     
+    for blob in state.blobs:
+        blob.enforce_minimal_width(state.min_thinkness)
+    
     # circumference equalization
+    # should be handled by sliding the endpoint along 
     for chain in movable_chains:
         if chain.blob_left.point_number * chain.blob_right.point_number < state.goal_blob_point_number*state.goal_blob_point_number:
             point_i = math.floor((chain.point_number-1)/2)
@@ -82,4 +89,11 @@ def create_frame_blob(width:float, height:float, margin=5)->Blob:
     left =   Chain.from_end_points(tl, bl, link_length=state.resolution)
     right =  Chain.from_end_points(tr, br, link_length=state.resolution)
     chain_loop = [top, left, bottom, right]
-    return Blob.from_chain_loop(chain_loop)
+    blob =  Blob.from_chain_loop(chain_loop)
+    # blob.is_unmoving_override = True 
+    # - that is not a good idea, The spawned blobs wouldn't be able to move
+    # From the outside they have None as a blob (hence unmoving)
+    # From the inside they will have the frame blob, (hence unmoving)
+    #So only between two spawned blobs a chain will be able to move. But why, would it?
+
+    return blob

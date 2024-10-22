@@ -1,4 +1,6 @@
 import math
+
+import pygame
 from chain import Chain
 from typing import Set, List
 from blob import Blob
@@ -20,9 +22,12 @@ goal_blob_point_number = math.ceil(goal_blob_circumference/link_length)
 
 frame_count = 0
 
-point_of_interest = Point(width*2, height*2)
+point_of_interest:Point = None
 
 def get_movable_chains():
     return [chain for chain in chains if not chain.is_unmoving]
 
-show_hero_point = False
+def draw_callback()->None:
+    raise RuntimeError("Forgot to set the draw callback in main_file")
+
+screen = pygame.display.get_surface()

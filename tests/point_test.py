@@ -67,3 +67,52 @@ def test_comparisons():
 
 
 
+def test_mutually_repel_no_correction_needed():
+    p1 = Point(0, 0)
+    p2 = Point(5, 0)
+    p1.mutually_repel(p2, target_distance=3)
+    assert p1.offset == Vector2(0, 0)
+    assert p2.offset == Vector2(0, 0)
+
+    # Test very close points
+    p1 = Point(0, 0)
+    p2 = Point(0.001, 0.001)
+    p1.mutually_repel(p2, target_distance=3)
+    assert p1.offset == Vector2(0, 0)
+    assert p2.offset == Vector2(0, 0)
+
+def test_mutually_repel_both_move():
+    p1 = Point(0, 0)
+    p2 = Point(1, 0)
+    p1.is_unmoving_override = False
+    p2.is_unmoving_override = False
+    p1.mutually_repel(p2, target_distance=4)
+    assert p1.offset == Vector2(-1.5, 0)
+    assert p2.offset == Vector2(1.5, 0)
+
+def test_mutually_repel_one_moves():
+    p1 = Point(0, 0)
+    p2 = Point(1, 0)
+    p1.is_unmoving_override = True
+    p2.is_unmoving_override = False
+    p1.mutually_repel(p2, target_distance=4)
+    assert p1.offset == Vector2(0, 0)
+    assert p2.offset == Vector2(3, 0)
+
+    p1.offset = Vector2(0, 0)  # Reset offsets
+    p2.offset = Vector2(0, 0)
+    p1.is_unmoving_override = False
+    p2.is_unmoving_override = True
+    p1.mutually_repel(p2, target_distance=4)
+    assert p1.offset == Vector2(-3, 0)
+    assert p2.offset == Vector2(0, 0)
+
+def test_mutually_repel_ignore_unmoving():
+    p1 = Point(0, 0)
+    p2 = Point(1, 0)
+    p1.is_unmoving_override = True
+    p2.is_unmoving_override = True
+    p1.mutually_repel(p2, target_distance=4, ignore_unmoving=True)
+    assert p1.offset == Vector2(-1.5, 0)
+    assert p2.offset == Vector2(1.5, 0)
+

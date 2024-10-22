@@ -12,18 +12,16 @@ class Blob:
         self.chain_loop = list()
     
     @classmethod
-    def from_chain_loop(cls, ccw_chain_loop:List[Chain], is_outer = False):
-        if len(ccw_chain_loop)<2:
-            raise NotImplementedError("We do not handle yet a case with so little chains", ccw_chain_loop)
-
+    def from_chain_loop(cls, ccw_chain_loop:List[Chain]):
         blob = cls()
         blob.chain_loop = ccw_chain_loop
+
+        # if len(ccw_chain_loop)==1:
+        #     raise NotImplementedError("We do not handle yet a case with so little chains", ccw_chain_loop)
     
         for chain_index, chain in enumerate(ccw_chain_loop):   
             blob_is_on_left_of_chain =  blob.is_chain_backwards(chain_index)
             if blob.is_clockwise():
-                blob_is_on_left_of_chain = not blob_is_on_left_of_chain
-            if is_outer:
                 blob_is_on_left_of_chain = not blob_is_on_left_of_chain
             if blob_is_on_left_of_chain:
                 chain.set_blobs(right=blob)
@@ -57,7 +55,7 @@ class Blob:
         sum-= double_counted_endpoints_num
         return sum
     
-    is_unmoving = False
+    is_unmoving_override = False
 
     def get_chain_and_on_chain_point_index_at(self, point_index)->tuple[Chain, int]:
         point_index %= self.point_number
@@ -83,13 +81,25 @@ class Blob:
 
     def is_clockwise(self):
         points = []
-        intersections_indexes = self.intersection_indexes
-        prev_index = 0
-        for i, index in enumerate(intersections_indexes):
-            middle_chain_index = math.floor((prev_index+index)/2)
-            points.append(self.get_point(middle_chain_index))
-            points.append(self.get_point(index))
-            prev_index = index 
+        if len(self.chain_loop) > 2:
+
+            intersections_indexes = self.intersection_indexes
+            prev_index = 0
+            for i, intersection_index in enumerate(intersections_indexes):
+                middle_chain_index = math.floor((prev_index+intersection_index)/2)
+                points.append(self.get_point(middle_chain_index))
+                points.append(self.get_point(intersection_index))
+                prev_index = intersection_index 
+        elif self.point_number<10:
+            points = self.points_list
+        else:
+            sample_number = 10
+            for i in range(sample_number):
+                intersection_index = math.floor((i/sample_number)*self.point_number)
+                points.append(self.get_point(intersection_index))
+            
+            
+            
 
         # Calculate the signed area using the Shoelace formula
         area = 0
@@ -196,7 +206,6 @@ class Blob:
         if not self.is_intersection_at(point_index):
             raise RuntimeError("Cut method cut at the wrong place or the intersection check checks in the wrong place", point_index)
 
-        self.is_valid(raise_errors=True)
         return chain_start, chain_end
     
     def get_chains_indexes_at_intersection(self, point_index:int):
@@ -221,7 +230,8 @@ class Blob:
     def is_chain_backwards(self, chain:Chain|int)->bool:
         """if Chain is provided, the blob references are used to quickly determine the result.
         but if we are changing/setting them, or can not trust them. Use the chain index."""
-
+        if len(self.chain_loop) == 1:
+                return False #there is only one chain - of course it isn't backwards
         if type(chain) == int:
             chain_index = chain
             next_index = (chain_index + 1) % len(self.chain_loop)
@@ -239,8 +249,7 @@ class Blob:
                     are_end_to_end = chain.point_end == next_chain.point_end
                     is_second_chain_backward = are_end_to_end
                     return is_second_chain_backward
-            if len(self.chain_loop) == 1:
-                return False
+            
         
         chain:Chain
         if chain.blob_left == self:
@@ -386,13 +395,25 @@ class Blob:
                 blob_on_right_side_of_this_chain = not blob_on_right_side_of_this_chain
             if blob_on_right_side_of_this_chain:
                 correct = (chain.blob_right == self) and (chain.blob_left  != self)
+                if re and not correct:
+                    raise ValueError(
+                        chain, "blob refererences are incorrect\n",
+                        f'expected right: self - {self}, actual: {chain.blob_right}\n',
+                        f'expected left: not self, actual: {chain.blob_left}'
+                    )
             else:
                 correct = (chain.blob_left  == self) and (chain.blob_right != self)
+                if re and not correct:
+                    raise ValueError(
+                        chain, "blob refererences are incorrect\n",
+                        f'expected right:not self,  actual: {chain.blob_right}\n',
+                        f'expected left: self - {self}, actual: {chain.blob_left}'
+                    )
             if not correct:
-                if re: raise ValueError("on chain references are incorrectly set", chain, self)
-                return False 
+                return False
+            
 
-        if not self.are_all_references_mutual():
+        if not self.are_all_references_mutual(raise_errors=raise_errors):
             return False
         return True
     
@@ -551,19 +572,23 @@ class Blob:
                 point_index = self.find_most_crowded_point_index()
                 self.remove_point(point_index)
 
-    def enforce_minimal_width(self, minimal_width, link_length):
+    def enforce_minimal_width(self, minimal_width:float, ignore_umoving_status = False):
+        if self.is_unmoving_override:
+            return
         #todo: repeat until cannot find minimum width
         circumference_distance_of_neigbors_to_ignore = minimal_width*2
-        indexes_difference = math.ceil(circumference_distance_of_neigbors_to_ignore/link_length)
-        if indexes_difference*2 >= self.point_number:
-            minimal_width = self.point_number*link_length/(math.pi * 2)
-            indexes_difference = (self.point_number//2) - 1
-        index_a, index_b = self.find_local_minimum_width_pair(qualifying_width=minimal_width, max_indexes_difference=indexes_difference,link_length=link_length, steps_number = 4)
+        index_berth = math.ceil(circumference_distance_of_neigbors_to_ignore/self.link_length)
+        if index_berth*2 >= self.point_number:
+            # minimal_width = self.actual_circumference/(math.pi)
+            index_berth = (self.point_number//2) - 1
+        else:
+            pass
+        index_a, index_b, _= self.find_local_minimum_width_pair_under_target_width(sample_number=3, index_berth=index_berth,target_width=minimal_width)
         if index_a == -1: #code for - "didn't found a qualifying local minimum"
             return
 
         point_a, point_b = self.get_point(index_a), self.get_point(index_b)
-        point_a.mutually_repel(point_b, distance = minimal_width)
+        point_a.mutually_repel(point_b, target_distance = minimal_width, ignore_unmoving=ignore_umoving_status)
         #propogate from them
         def pair_indexes_next_to_the(a:int, b:int, left=False, right=False):
             prev_a, next_a = self.neighboring_indexes(a)
@@ -572,20 +597,20 @@ class Blob:
             if right: return next_a, prev_b
         left_a, left_b = pair_indexes_next_to_the(left=True, a=index_a, b=index_b)
         right_a, right_b = pair_indexes_next_to_the(right=True, a=index_a, b=index_b)
-        move_to_the_left = self.index_distance(left_a, left_b)>indexes_difference and self.points_distance(left_a, left_b)<minimal_width
-        move_to_the_right = self.index_distance(right_a, right_b)>indexes_difference and self.points_distance(right_a, right_b)<minimal_width
+        move_to_the_left = self.index_distance(left_a, left_b)>index_berth and self.points_distance(left_a, left_b)<minimal_width
+        move_to_the_right = self.index_distance(right_a, right_b)>index_berth and self.points_distance(right_a, right_b)<minimal_width
         
         while move_to_the_left:
             point_a, point_b = self.get_point(left_a), self.get_point(left_b)
-            point_a.mutually_repel(point_b, distance = minimal_width)
+            point_a.mutually_repel(point_b, target_distance = minimal_width, ignore_unmoving=ignore_umoving_status)
             left_a, left_b = pair_indexes_next_to_the(left=True, a=left_a, b=left_b)
-            move_to_the_left = self.index_distance(left_a, left_b)>indexes_difference and self.points_distance(left_a, left_b)<minimal_width
+            move_to_the_left = self.index_distance(left_a, left_b)>index_berth and self.points_distance(left_a, left_b)<minimal_width
 
         while move_to_the_right:
             point_a, point_b = self.get_point(right_a), self.get_point(right_b)
-            point_a.mutually_repel(point_b, distance = minimal_width)
-            right_a, right_b = pair_indexes_next_to_the(right=True, a=index_a, b=index_b)
-            move_to_the_right = self.index_distance(right_a, right_b)>indexes_difference and self.points_distance(right_a, right_b)<minimal_width
+            point_a.mutually_repel(point_b, target_distance = minimal_width, ignore_unmoving=ignore_umoving_status)
+            right_a, right_b = pair_indexes_next_to_the(right=True, a=right_a, b=right_b)
+            move_to_the_right = self.index_distance(right_a, right_b)>index_berth and self.points_distance(right_a, right_b)<minimal_width
 
     def index_distance(self, index_a:int, index_b:int):
         """given the indexes of two points returns the shortest of the two distances between them in index difference"""
@@ -602,35 +627,94 @@ class Blob:
         point, other = self.get_point(point_index), self.get_point(other_index)
         return point.co.distance_to(other.co)
     
-    def find_local_minimum_width_pair(self, qualifying_width:float, max_indexes_difference:int,link_length:float, steps_number:int):
-        """returns a pair of indexes of two points that are closer than a minimal width, while not being closer than an index difference apart.
-        if no qualifying pair is found returns -1, -1"""
-        #todo: repeat for samples number
-        #pick a start pair of points
-        point_index = random.randint(a=0, b=self.point_number-1)
-        other_index = (point_index + self.point_number//2) % self.point_number
 
-        for _ in range(steps_number):
-            smallest_width = self.points_distance(point_index, other_index)
-            step = 1 if smallest_width<qualifying_width else math.ceil((smallest_width - qualifying_width)/link_length)
-            point_side_indexes = [point_index, (point_index-step)%self.point_number, (point_index+step)%self.point_number]
-            other_side_indexes = [other_index, (other_index-step)%self.point_number, (other_index+step)%self.point_number]
-            candidate_pairs = [(a, b) for a in point_side_indexes for b in other_side_indexes]
-            candidate_pairs.remove((point_index, other_index))#we need only new candidates
-            for a, b in candidate_pairs:
-                index_distance = self.index_distance(a, b)
-                width = self.points_distance(a,b)
-                if index_distance>max_indexes_difference and width<smallest_width:
-                    point_index = a
-                    other_index = b
-                    smallest_width = width
-        if smallest_width > qualifying_width:
-            return -1, -1
-        else:
-            return point_index, other_index
-
-
+    @property
+    def points_list(self)->list[Point]:
+        return [self.get_point(index) for index in range(self.point_number)]
     
+    @property
+    def actual_circumference(self)->float:
+        sum = 0
+        for i in range(self.point_number):
+            prev, next = self.neighboring_indexes(i)
+            sum += self.points_distance(i, next)
+        return sum
+    
+    @property
+    def link_length(self)->float:
+        return self.actual_circumference/self.point_number
+    
+    def find_local_minimum_width_pair_under_target_width(self, sample_number:int, index_berth:int, target_width:float):
+        """Will semi efficiently find the local minimum width and return the pair of indexes and the width.
+        if the found width is larger than the target width, returns -1, -1 and a width that most likely isn't the smallest"""
+        #helper function
+        def initial_pairs(number_of_pairs:int):
+            pairs = []
+            for i in range(number_of_pairs):
+                a = math.floor(0.5 *self.point_number*i/number_of_pairs)
+                b = (self.point_number//2 + a)%self.point_number
+                pairs.append((a,b))
+            return pairs
+
+        #----------main-----------
+        smallest_width_so_far = math.inf
+        initial_guesses = initial_pairs(number_of_pairs=sample_number)
+        closest_pair=(-3, -3)
+        for pair in initial_guesses:
+            found_local_minimum = False
+            closer_pair = pair
+            while not found_local_minimum:
+                closer_pair, distance = self.try_finding_closer_pair(closer_pair,index_berth=index_berth, target_distance=target_width)
+                found_local_minimum = closer_pair == (-404, -404) #a code meaning that we have reached the local minimum, the privious pair was the closest so we can get out of the loop
+                if distance<smallest_width_so_far:
+                    smallest_width_so_far = distance
+                    closest_pair = closer_pair
+        index_a, index_b = closest_pair
+        smallest_width = smallest_width_so_far
+        if smallest_width > target_width:
+            return -1, -1, smallest_width
+        return index_a, index_b, smallest_width
+
+    def try_finding_closer_pair(self, initial_pair:tuple[int,int],index_berth:int, target_distance:float):
+        """will search in the vacinity, but if the given pair looks like the closest pair seems to be the initial one, it will return the initial one"""
+        #helper function
+        def create_candidate_pairs_list(blob:Blob, base_pair:tuple[int, int], step:int, index_berth:int):
+            index_a, index_b = base_pair
+            a_indexes = [index_a, (index_a-step)%blob.point_number, (index_a+step)%blob.point_number]
+            b_indexes = [index_b, (index_b-step)%blob.point_number, (index_b+step)%blob.point_number]
+            candidate_pairs = [(a, b) for a in a_indexes for b in b_indexes]
+            candidate_pairs.remove(base_pair)
+            valid_pairs = [pair for pair in candidate_pairs if blob.index_distance(*pair)>index_berth]
+            return valid_pairs
+        
+        
+        #---------main-------
+        step:int
+        initial_distance = self.points_distance(*initial_pair)
+        if target_distance>initial_distance:
+            step = 1
+        else:
+            step = math.ceil((initial_distance - target_distance)/self.link_length)
+        candidate_pairs = create_candidate_pairs_list(blob= self, base_pair=initial_pair, step=step, index_berth=index_berth)
+        closest_pair = initial_pair
+        smallest_distance = initial_distance
+        for candidate in candidate_pairs:
+            candidate_distance = self.points_distance(*candidate)
+            if candidate_distance<smallest_distance:
+                smallest_distance = candidate_distance
+                closest_pair = candidate
+        if closest_pair == initial_pair:
+            closest_pair = (-404,-404) #a code that we have reached the local minimum
+        return closest_pair, smallest_distance
+    
+    
+    def apply_accumulated_offsets(self, ignore_unmoving_status=False):
+        for chain in self.chain_loop:
+            chain.apply_accumulated_offsets(ignore_unmoving_status=ignore_unmoving_status)
+    
+    def opposite_index(self, point_index):
+        point_number = self.point_number
+        return (point_index+point_number//2)%point_number
 
 
         

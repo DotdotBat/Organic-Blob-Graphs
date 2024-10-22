@@ -110,8 +110,7 @@ class Chain:
             correction = b.co - a.co
             correction_amount = (correction.length() - link_length)
             if correction.length()>0.01:
-                correction.scale_to_length(correction_amount)
-            correction/=2
+                correction.scale_to_length(correction_amount/2)
             a.add_offset(correction.x, correction.y)
             b.add_offset(-correction.x, -correction.y)
     
@@ -163,15 +162,17 @@ class Chain:
 
     @property
     def is_unmoving(self)->bool:
+        if self.is_unmoving_override is not None:
+            return self.is_unmoving_override
         if self.blob_left is None or self.blob_right is None:
             return True
-        return self.blob_left.is_unmoving or self.blob_right.is_unmoving     
+        return self.blob_left.is_unmoving_override or self.blob_right.is_unmoving_override    
     
     def cut(self, point_index:int):
         if point_index <= 0 or point_index >= self.point_number - 1:
             raise ValueError("You are trying to cut too close to one of the ends of the chain. You are cutting at:", point_index, "While minimum is 1 and max is", self.point_number-2)
         for point in self.points:
-            point.chains.remove(self)
+            point.chains.discard(self)
 
         start_points =  self.points[:point_index+1]
         for point in start_points:
@@ -285,6 +286,12 @@ class Chain:
         if self.blob_right is not None:
             self.blob_right.chain_loop.remove(self)
             self.blob_right = None
+    
+    def close(self):
+        if self.point_start != self.point_end:
+            self.points.append(self.point_start)
+    
+    is_unmoving_override:bool = None
 
         
     

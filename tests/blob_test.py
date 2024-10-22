@@ -273,25 +273,28 @@ def test_from_ivalid_chain_loop():
     chain1 = Chain.from_point_list([p1, p2])
     chain2 = Chain.from_point_list([p2, p3])
     
-    invalid_blob = Blob.from_chain_loop([chain1, chain2])
+    invalid_blob = Blob.from_chain_loop([chain1, chain2]) #The chain isn't closed
     assert invalid_blob.chain_loop == [chain1, chain2]
     
     # Check blob reference in chains
     assert chain1.blob_right == invalid_blob or chain1.blob_left == invalid_blob
+    assert chain1.blob_left != chain1.blob_right
     assert chain2.blob_right == invalid_blob or chain2.blob_left == invalid_blob
+    assert chain2.blob_left != chain2.blob_right
     assert invalid_blob.is_valid() is not True
     
     chain3 = Chain.from_point_list([p1, p3])
     valid_blob = Blob.from_chain_loop([chain1, chain2, chain3])
-    assert valid_blob.is_valid() is True
+    assert valid_blob.is_valid(raise_errors=True) is True
 
-    
-    valid_blob.chain_loop[0].blob_left, valid_blob.chain_loop[0].blob_right = valid_blob.chain_loop[0].blob_right, valid_blob.chain_loop[0].blob_left
+    first_chain = valid_blob.chain_loop[0]
+    #switching them up
+    first_chain.blob_left, first_chain.blob_right = first_chain.blob_right, first_chain.blob_left
     assert valid_blob.is_valid() is False
-    valid_blob.chain_loop[0].blob_left = None
-    valid_blob.chain_loop[0].blob_right = invalid_blob
+    first_chain.blob_left = None
+    first_chain.blob_right = invalid_blob
     assert valid_blob.is_valid() is False
-    valid_blob.chain_loop[0].blob_right = invalid_blob
+    first_chain.blob_right = invalid_blob
 
 
 
@@ -533,5 +536,33 @@ def test_points_distance():
     assert blob.points_distance(0, 1) == 5
     assert blob.points_distance(1, 0) == 5
     assert blob.points_distance(0, 0) == 0
+
+
+def test_one_chain_blob():
+    points = [
+        Point(0, 0),
+        Point(1, 0),
+        Point(1, 1),
+        Point(0, 1)
+    ]
+    unclosed_chain = Chain.from_point_list(points)
+    unclosed_blob = Blob.from_chain_loop([unclosed_chain])
+    assert unclosed_blob.is_valid() is False
+    assert_references(blobs=[unclosed_blob])
+
+    points.append(points[0])
+    for point in points:
+        point.chains.clear()
+    closed_chain = Chain.from_point_list(points)
+    closed_blob = Blob.from_chain_loop([closed_chain])
+    assert closed_blob.is_clockwise() is True
+    assert closed_blob.is_valid(raise_errors=True) is True
+    assert_references(blobs=[closed_blob])
+    closed_blob.cut_at(1)
+    assert len(closed_blob.chain_loop) ==2
+    assert closed_blob.is_clockwise() is True
+    assert_references(blobs=[closed_blob])
+    assert closed_blob.is_valid(raise_errors=True)
+    
 
 

@@ -1,6 +1,8 @@
 import math
 
 from pygame import Vector2
+from pygame.math import lerp
+from math import sin, cos
 from blob import Blob
 from chain import Chain
 from point import Point
@@ -147,15 +149,16 @@ def test_enforce_minimal_width():
     right = Chain.from_end_points(br, tr, point_num=3)
     top = Chain.from_end_points(tr, tl, point_num=3)
     blob = Blob.from_chain_loop([left, bottom, right, top])
+    for chain in blob.chain_loop:
+        chain.is_unmoving_override = False
 
 
     # Scenario 1: No correction needed
-    result = blob.find_local_minimum_width_pair(
-        qualifying_width=minimal_width_small, max_indexes_difference=1,
-        link_length=100, steps_number=10
+    *closest_pair, width = blob.find_local_minimum_width_pair_under_target_width(
+        target_width=minimal_width_small, index_berth=1, sample_number=10
     )
-    assert result == (-1, -1)
-    blob.enforce_minimal_width(minimal_width_small, link_length=100)
+    assert closest_pair == [-1, -1]
+    blob.enforce_minimal_width(minimal_width_small)
     for chain in blob.chain_loop:
         for point in chain.points:
             assert point.offset.x == 0 and point.offset.y == 0, "No offset should be applied."
@@ -165,34 +168,80 @@ def test_enforce_minimal_width():
     
     # Move top and bottom points closer together
     top_point = top.create_midpoint(0, 1)
-    top_index = 7
-    assert blob.get_point(top_index) == top_point
     bottom_point = bottom.create_midpoint(0,1)
+    top_index = 8
+    assert blob.get_point(top_index) == top_point
     bottom_index = 3
     assert blob.get_point(bottom_index) == bottom_point
-    top_point.co.y = 40
-    bottom_point.co.y = 60
+    top_point.co.y = 50
+    top_point.co.x = 50
+    bottom_point.co.x = 50
+    
+    bottom_point.co.y = 65
+    assert top_point.co.distance_to(bottom_point.co) < minimal_width_large
 
 
-    result = blob.find_local_minimum_width_pair(
-        qualifying_width=minimal_width_large, link_length=70,
-        max_indexes_difference=1, steps_number=10
+    *closest_pair, _ = blob.find_local_minimum_width_pair_under_target_width(
+        sample_number=10, index_berth=3, target_width=minimal_width_large
     )
-    assert top_index in result
-    assert bottom_index in result
-    blob.enforce_minimal_width(minimal_width_large, 70)
+    assert top_index in closest_pair
+    assert bottom_index in closest_pair
+    blob.enforce_minimal_width(minimal_width=minimal_width_large)
     for p in [tl, bl, tr, br]:
         assert p.offset.length_squared() == 0
     assert bottom_point.offset.length_squared() != 0, "Offset should be applied to p2."
     assert top_point.offset.length_squared() != 0, "Offset should be applied to p4."
-    bottom_point.apply_accumulated_offset()
-    top_point.apply_accumulated_offset()
+    bottom_point.apply_accumulated_offset(ignore_unmoving=True)
+    top_point.apply_accumulated_offset(ignore_unmoving=True)
     assert bottom_point.co.distance_to(top_point.co) == pytest.approx(minimal_width_large)
 
-    #define the test when you are sure of the desired behavior
-    blob.enforce_minimal_width(minimal_width_too_big, 50)
-    for chain in blob.chain_loop:
-        for point in chain.points:
-            assert point.offset.magnitude_squared() > 0
+
+    #SCENARIO 3 more than 2 points need to be corrected
+    #create a smooth dumbell shaped blob, where the bottleneck is 215 units across, so lets enforce 300
+
+    coords = []
+    point_number = 20
+    for i in range(point_number):
+        t = lerp(0, math.tau, i/point_number)
+        x = 3*sin(t) + cos(t)
+        y = 2*cos(t) + sin(3*t)
+        x = lerp(0, 1000, x/8 + 0.5)
+        y = lerp(0, 600, y/6 + 0.5)
+        coords.append((x, y))
+
+    chain = Chain.from_coord_list(coords=coords)
+    chain.close()
+    dumbell_blob = Blob.from_chain_loop([chain])
+
+    *bottleneck_indexes_pair, bottleneck_width = dumbell_blob.find_local_minimum_width_pair_under_target_width(
+        sample_number=3, index_berth=6, target_width=215
+    )
+    assert 18 in bottleneck_indexes_pair and 9 in bottleneck_indexes_pair
+    assert bottleneck_width == pytest.approx(210.9557686)
+    max_width = dumbell_blob.points_distance(1,11)/2 
+    dumbell_blob.enforce_minimal_width(
+        minimal_width= (max_width + bottleneck_width)/2
+    )
+
+    # #last scenario, the whole blob is smaller than the specified min_width, so it is expected to grow with each iteration
+    blob.enforce_minimal_width(minimal_width_too_big)
+    blob.recalculate_area()
+    area_before = blob.cashed_area
+
+    assert any(point.offset.magnitude_squared() > 0 for point in blob.points_list)
+    #lets repeat this a few times and the blob should be big:
+    for i in range(100):
+        blob.apply_accumulated_offsets(ignore_unmoving_status=True)
+        assert all(point.offset.x==0 and point.offset.y ==0 for point in blob.points_list)
+        link_length = lerp(100, 300, i/100)
+        for chain in blob.chain_loop:
+            chain.enforce_link_length(link_length,ignore_umoving_status=True)
+        blob.enforce_minimal_width(minimal_width_too_big+10, ignore_umoving_status=True)
+    blob.recalculate_area()
+    assert blob.cashed_area > area_before
+    for point_index in range(blob.point_number):
+        opposite_index = blob.opposite_index(point_index)
+        distance = blob.points_distance(point_index, opposite_index)
+        assert distance >= minimal_width_too_big
 
 

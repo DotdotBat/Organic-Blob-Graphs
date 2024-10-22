@@ -1,12 +1,12 @@
 import simulation
 import pygame
 import draw as draw_module
-from draw import draw
 import state
 
 def main():
     pygame.init()
     draw_module.screen = pygame.display.set_mode((state.width, state.height))
+    state.draw_callback = draw_module.draw_state
     clock = pygame.time.Clock()
     running = True
     dt = 0
@@ -21,7 +21,7 @@ def main():
                 running = False
 
         simulation.simulate(dt)
-        draw()
+        state.draw_callback()
         #wrap up
         pygame.display.flip()
         dt = clock.tick(60) / 1000
