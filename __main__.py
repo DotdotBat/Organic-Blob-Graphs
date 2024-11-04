@@ -2,7 +2,9 @@ import simulation
 import pygame
 import draw as draw_module
 import state
+from custom_profile import profile
 
+@profile
 def main():
     pygame.init()
     draw_module.screen = pygame.display.set_mode((state.width, state.height))

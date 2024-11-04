@@ -116,3 +116,110 @@ def test_mutually_repel_ignore_unmoving():
     assert p1.offset == Vector2(-1.5, 0)
     assert p2.offset == Vector2(1.5, 0)
 
+from chain import Chain
+def test_is_endpoint_on_all_chains():
+    # Create points
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(3, 3)
+
+    # Create chains
+    chain1 = Chain.from_point_list([p1, p2, p3])
+    chain2 = Chain.from_point_list([p1, p4])
+    chain3 = Chain.from_point_list([p1, p3, p4])
+
+
+    assert p1.is_endpoint_on_all_chains is True
+    assert p2.is_endpoint_on_all_chains is False
+    assert p3.is_endpoint_on_all_chains is False
+    assert p1.is_endpoint_on_ONLY_SOME_chains is False
+    assert p2.is_endpoint_on_ONLY_SOME_chains is False
+    assert p3.is_endpoint_on_ONLY_SOME_chains is True
+
+def test_get_adjacent_points_multiple_chains():
+    # Create points
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(3, 3)
+    p5 = Point(4, 4)
+
+    # Create chains
+    chain1 = Chain.from_point_list([p1, p2, p3])
+    chain2 = Chain.from_point_list([p1, p4])
+    chain3 = Chain.from_point_list([p1, p5])
+
+
+    # Test adjacent points
+    assert set(p1.get_adjacent_points()) == {p2, p4, p5}
+    assert p2.get_adjacent_points() == [p1, p3]
+    assert p3.get_adjacent_points() == [p2]
+
+def test_is_endpoint_of_chain():
+    # Create points
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(3, 3)
+
+    # Create chains
+    chain1 = Chain.from_point_list([p1, p2, p3])
+    chain2 = Chain.from_point_list([p3, p4])
+
+    # Test if points are endpoints of the chain
+    assert p1.is_endpoint_of_chain(chain1) is True
+    assert p3.is_endpoint_of_chain(chain1) is True
+    assert p2.is_endpoint_of_chain(chain1) is False
+
+    assert p3.is_endpoint_of_chain(chain2) is True
+    assert p4.is_endpoint_of_chain(chain2) is True
+    assert p1.is_endpoint_of_chain(chain2) is False
+
+def test_closest_of_points_basic_case():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(3, 3)
+
+    points = [p2, p3, p4]
+    assert p1.closest_of_points(points) == p2
+
+def test_closest_of_points_multiple_closest():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(1, 1)  # Same distance as p2 from p1
+    p4 = Point(3, 3)
+
+    points = [p2, p3, p4]
+    closest = p1.closest_of_points(points)
+    assert closest == p2 or closest == p3
+
+def test_closest_of_points_single_point():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+
+    points = [p2]
+    assert p1.closest_of_points(points) == p2
+
+def test_closest_of_points_empty_list():
+    p1 = Point(0, 0)
+    points = []
+
+    with pytest.raises(ValueError):  # Assuming it raises an error for empty list
+        p1.closest_of_points(points)
+
+def test_closest_of_points_large_number_of_points():
+    p1 = Point(0, 0)
+    points = [Point(i, i) for i in range(1,1000)]
+    points[500] = Point(0, 1)  # Closest point
+
+    assert p1.closest_of_points(points) == points[500]
+
+def test_closest_of_points_with_negative_coordinates():
+    p1 = Point(0, 0)
+    p2 = Point(-1, -1)
+    p3 = Point(-2, -2)
+
+    points = [p2, p3]
+    assert p1.closest_of_points(points) == p2

@@ -15,6 +15,8 @@ class Chain:
     @property
     def point_start(self) -> "Point":
         """First point"""
+        if self.point_number==0:
+            return None
         return self.points[0]
     @point_start.setter
     def point_start(self, point:"Point"):
@@ -23,6 +25,8 @@ class Chain:
     @property
     def point_end(self) -> "Point":
         """Last point"""
+        if self.point_number==0:
+            return None
         return self.points[-1]
     
     @point_end.setter
@@ -293,5 +297,26 @@ class Chain:
     
     is_unmoving_override:bool = None
 
-        
+    def find_biggest_gap(self)->tuple [int, int, float]:
+        if self.point_number<2:
+            raise ValueError("Trying to find the biggest gap on a chain too short to have any gaps")
+        best_so_far = (-1, -1, 0)
+        for i in range(self.point_number - 1):
+            next_i = i+1
+            p, next_p = self.points[i], self.points[next_i]
+            gap_length = p.co.distance_to(next_p.co)
+            _, _, biggest_gap_so_far = best_so_far
+            if gap_length > biggest_gap_so_far:
+                best_so_far = i, next_i, gap_length
+        return best_so_far
+    
+    def endpoint_neighbor(self, endpoint:Point):
+        if self.point_number<2:
+            return None
+        if endpoint == self.point_start:
+            return self.points[1]
+        if endpoint == self.point_end:
+            return self.points[-2]
+        raise ValueError(endpoint, "is not endpoint on", self)
+    
     

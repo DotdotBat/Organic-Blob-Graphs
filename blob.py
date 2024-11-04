@@ -153,6 +153,7 @@ class Blob:
         
         self.set_blob_reference_on_chains()
         new_blob.set_blob_reference_on_chains()
+        new_blob.link_length = self.link_length
         return new_blob, list_of_chains_to_update
     
     def get_chains_between_intersections(self, start_index, end_index):
@@ -530,19 +531,22 @@ class Blob:
         return point
     
     def find_biggest_gap_indexes(self, only_movable_chains = True):
-        biggest_gap = 0
-        for point_index in range(self.point_number):
-            _, next_index = self.neighboring_indexes(point_index)
-            point = self.get_point(point_index)
-            next_point = self.get_point(next_index)
-            if only_movable_chains and point.is_unmoving and next_point.is_unmoving:
-                continue
-            gap = point.co.distance_squared_to(next_point.co)
-            if gap > biggest_gap:
-                i = point_index
-                next_i = next_index
-                biggest_gap = gap
-        return i, next_i
+        longest_gap_length_on_blob = 0
+        gap_index_pair = (-1, -1)
+        for chain in self.chain_loop:
+            if only_movable_chains and chain.is_unmoving:
+                continue #skip the chain
+            i, next_i, gap_length = chain.find_biggest_gap() #todo: what if chain has only two points, and both are unmoving, but the chain itself if moving? Unlikely Edge case? yes. will mess up everything? eventually. Hard to track - yes, easy to fix - yes.
+            if gap_length> longest_gap_length_on_blob:
+                longest_gap_length_on_blob = gap_length
+                index = chain.get_on_blob_point_index(blob=self, chain_point_index=i)
+                other_index = chain.get_on_blob_point_index(blob=self, chain_point_index=next_i)
+                gap_index_pair = (index, other_index)
+                if self.is_chain_backwards(chain):
+                    gap_index_pair = (other_index, index)
+
+        index, next_index = gap_index_pair
+        return index, next_index
     
     def find_most_crowded_point_index(self):
         smallest_sum = math.inf
@@ -642,8 +646,15 @@ class Blob:
     
     @property
     def link_length(self)->float:
-        return self.actual_circumference/self.point_number
-    
+        if self._stored_link_length == 0:
+            print("blob didn't know it's link length, so it just calculated it on the fly, and will remember it")
+            self._stored_link_length = self.actual_circumference/self.point_number
+        return self._stored_link_length
+    _stored_link_length = 0
+    @link_length.setter
+    def link_length(self, length:float):
+        self._stored_link_length = length
+
     def find_local_minimum_width_pair_under_target_width(self, sample_number:int, index_berth:int, target_width:float):
         """Will semi efficiently find the local minimum width and return the pair of indexes and the width.
         if the found width is larger than the target width, returns -1, -1 and a width that most likely isn't the smallest"""

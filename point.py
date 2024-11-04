@@ -82,4 +82,57 @@ class Point:
     
     is_unmoving_override:bool = None
 
+    @property
+    def chains_number(self):
+        return len(self.chains)
     
+    def endpoint_should_be_dissolved(self, ignore_umoving_status):
+        "if it connects two different chains, and it is the endpoint of both, than the two chains act as one"
+        if self.chains_number!=2:
+            return False
+        if not self.is_endpoint_on_all_chains:
+            return False
+        return True
+        
+    @property
+    def is_endpoint_on_all_chains(self)->bool:
+        #we do not consider scenarios where chains is empty, in a valid state, it will not be. 
+        return all([self.is_endpoint_of_chain(chain) for chain in self.chains])
+
+    
+    @property
+    def is_endpoint_on_ONLY_SOME_chains(self)->bool:
+        if self.is_endpoint_on_all_chains:
+            return False
+        return any([self.is_endpoint_of_chain(chain) for chain in self.chains])
+    
+    is_endpoint_on_ONLY_SOME_chains
+    
+    def is_endpoint_of_chain(self, chain):
+        return self == chain.point_start or self == chain.point_end
+    
+    def get_adjacent_points(self):
+        adjacent_points = []
+        if self.is_endpoint_on_all_chains:
+            for chain in self.chains:
+                adjacent_points.append(chain.endpoint_neighbor(self))
+        else:
+            #this isn't an endpoint, so it should have two neighboring points
+            chain = list(self.chains)[0]
+            self_index = chain.points.index(self)
+            adjacent_points.append(chain.points[self_index-1])
+            adjacent_points.append(chain.points[self_index+1])
+        return adjacent_points
+    
+    def closest_of_points(self, others:list["Point"]):
+        if len(others)<1:
+            raise ValueError("Nothing to compare to in ", others)
+        closest = others[0]
+        for other in others:
+            if self.co.distance_squared_to(other.co) < self.co.distance_squared_to(closest.co):
+                closest = other
+        return closest
+
+            
+            
+
