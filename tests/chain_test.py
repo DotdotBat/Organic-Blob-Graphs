@@ -411,3 +411,116 @@ def test_neighboring_point_of_invalid_endpoint():
 
     with pytest.raises(ValueError):  # Assuming it raises an error
         chain.endpoint_neighbor(p4)
+
+
+
+def test_dissolve_endpoint_basic_merge():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(3, 3)
+
+    chain1 = Chain.from_point_list([p1, p2])
+    chain2 = Chain.from_point_list([p2, p3, p4])
+
+    # Dissolve endpoint p2 which connects both chains
+    p2.dissolve_endpoint()
+
+    # Check that chain2 is empty
+    assert chain2.points == [] or chain1.points == []
+
+    empty_chain = chain1 if len(chain1.points)==0 else chain2
+    full_chain = chain2 if empty_chain == chain1 else chain1
+    # Check that chain1 now contains all points
+    for point in [p1, p2, p3, p4]:
+        assert point in full_chain.points
+
+def test_dissolve_endpoint_order_preservation():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(3, 3)
+
+    chain1 = Chain.from_point_list([p2, p1])
+    chain2 = Chain.from_point_list([p2, p3, p4])
+
+    # Dissolve endpoint p2
+    p2.dissolve_endpoint()
+
+    # Ensure order is preserved
+    assert chain1.points == [p1, p2, p3, p4] or [p4, p3, p2, p1]
+
+def test_dissolve_endpoint_invalid_endpoint():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(0, 2)
+    p5 = Point(2, 0)
+
+    chain = Chain.from_point_list([p1, p2, p3])
+    chain2 = Chain.from_point_list([p3, p4])
+    chain3 = Chain.from_point_list([p3, p5])
+
+    # p1 has only one chain
+    with pytest.raises(ValueError):
+        p1.dissolve_endpoint()
+
+    #p2 is not an endpoint
+    with pytest.raises(ValueError):
+        p2.dissolve_endpoint()
+
+    # p3 connects 3 points instead of 2
+    with pytest.raises(ValueError):
+        p3.dissolve_endpoint()
+
+from blob import Blob
+
+def test_switch_blob_references_both_none():
+    chain = Chain()
+    chain.blob_right = None
+    chain.blob_left = None
+    
+    chain.swap_blob_references()
+    
+    assert chain.blob_right is None
+    assert chain.blob_left is None
+
+def test_switch_blob_references_one_none():
+    blob = Blob()
+    chain = Chain()
+    chain.blob_right = blob
+    chain.blob_left = None
+    
+    chain.swap_blob_references()
+    
+    assert chain.blob_right is None
+    assert chain.blob_left == blob
+
+def test_switch_blob_references_both_set():
+    blob1 = Blob()
+    blob2 = Blob()
+    chain = Chain()
+    chain.blob_right = blob1
+    chain.blob_left = blob2
+    
+    chain.swap_blob_references()
+    
+    assert chain.blob_right == blob2
+    assert chain.blob_left == blob1
+
+def test_switch_blob_references_same_blob():
+    blob = Blob()
+    chain = Chain()
+    chain.blob_right = blob
+    chain.blob_left = blob
+    
+    with pytest.raises(ValueError):
+        chain.swap_blob_references()
+
+def test_switch_blob_references_no_blobs():
+    chain = Chain()
+    
+    chain.swap_blob_references()
+    
+    assert chain.blob_right is None
+    assert chain.blob_left is None

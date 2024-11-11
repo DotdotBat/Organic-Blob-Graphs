@@ -195,11 +195,14 @@ class Chain:
         return chain_start, chain_end
     
     def __str__(self) -> str:
+        named = ""
+        if self.name is not None:
+            named = self.name+" "
         if self.point_number==1:
-            return f'short Chain only one {self.point_start}'
+            return f'a short {named}Chain only one {self.point_start}'
         if self.point_number == 0:
-            return f'empty Chain object'
-        return f'Chain from {self.point_start} to {self.point_end} with {self.point_number-2} in between'
+            return f'empty {named}Chain object'
+        return f'{named}Chain from {self.point_start} to {self.point_end} with {self.point_number-2} in between'
     def __repr__(self):
         obj_id = id(self)
         hex_addr = hex(obj_id)[2:]  # Remove '0x' prefix
@@ -319,4 +322,44 @@ class Chain:
             return self.points[-2]
         raise ValueError(endpoint, "is not endpoint on", self)
     
+    def merge_with(self, other:"Chain"):
+        bl, br = self.blob_left, self.blob_right
+        if not self.is_connected_to(other):
+            raise ValueError("trying to merge two disconnected chains:", self, other)
+        new_point_list:list[Point] = []
+        common_point = self.common_endpoint(other)
+       
+        if self.point_start == common_point:
+            self.points.reverse()
+            #switch blob references
+            self.swap_blob_references()
+            bl, br = br, bl
+        
+        new_point_list.extend(self.points)
+        new_point_list.pop() #the common point so that we don't add it twice
+        if other.point_end == common_point:
+            other.points.reverse()
+        new_point_list.extend(other.points)
+
+        other.unregister()
+        self.points = new_point_list
+        for point in new_point_list:
+            point.chains.update([self])
+        if br or bl:
+            assert self.blob_right != self.blob_left
+            
+    def unregister(self):
+        for point in self.points:
+            point.chains.remove(self)
+        # del self.points #might not be legal, if so just = []
+        self.points = []
+        self.unregister_from_blobs()
+        # del self
+    
+    name:str = None
+
+    def swap_blob_references(self):
+        self.blob_left, self.blob_right = self.blob_right, self.blob_left
+        if self.blob_right is not None and self.blob_right == self.blob_left:
+            raise ValueError(self, "Chain references should not point to the same blob:", self.blob_left)
     

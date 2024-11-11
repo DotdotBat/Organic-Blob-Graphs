@@ -133,6 +133,12 @@ class Point:
                 closest = other
         return closest
 
-            
+    def dissolve_endpoint(self):
+        chains = list(self.chains)
+        if self.is_endpoint_on_ONLY_SOME_chains:
+            raise ValueError("invalid state")
+        if len(chains) != 2:
+            raise ValueError("Trying to dissolve a point that doesn't have exactly 2 chains", self, self.chains)
+        chains[0].merge_with(chains[1])
             
 

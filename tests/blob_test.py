@@ -564,5 +564,71 @@ def test_one_chain_blob():
     assert_references(blobs=[closed_blob])
     assert closed_blob.is_valid(raise_errors=True)
     
+def test_dissolve_endpoint_remove_from_blobs():
+    blob_up:Blob
+    blob_down:Blob
+    p_top:Point
+    p_center:Point
+    p_left:Point
+    top_left:Chain
+    right_top:Chain
+    center_left:Chain
+    center_right:Chain
 
+    def setup():
+        global blob_up, blob_down, p_top, p_center, p_left, top_left, right_top, center_left, center_right
+        p_top = Point(0, 0)
+        p_center = Point(0, 10)
+        p_left = Point(-10, 20)
+        p_right = Point(10, 20)
+
+        bottom = Chain.from_point_list([p_left, p_right])
+        bottom.name = "Bottom"
+        center_left = Chain.from_end_points(start=p_center, end=p_left,point_num=10)
+        center_left.name = "Center-Left"
+        center_right = Chain.from_end_points(start=p_center, end= p_right,point_num=10)
+        center_right.name = "Center-Right"
+        top_left = Chain.from_end_points(start=p_top, end=p_left,point_num=10)
+        top_left.name = "Top-Left"
+        right_top = Chain.from_end_points(start=p_right, end=p_top,point_num=10)
+        right_top.name = "Right-Top"
+
+        blob_up = Blob.from_chain_loop([center_left, center_right, right_top, top_left])
+        blob_up.name = "Up"
+        blob_down=Blob.from_chain_loop([center_left, center_right, bottom])
+        blob_down.name = "Down"
+        return blob_up, blob_down, p_top, p_center, p_left, top_left, right_top, center_left, center_right
+
+    def check_state():
+        assert blob_up.is_valid(raise_errors=True)
+        assert blob_down.is_valid(raise_errors=True)
+        assert_references(blobs=[blob_up, blob_down])
+
+
+    blob_up, blob_down, p_top, p_center, p_left, top_left, right_top, center_left, center_right = setup()
+    check_state()
+    center_left.merge_with(center_right)
+    check_state()
+    top_left.merge_with(right_top)
+    check_state()
+    blob_up, blob_down, p_top, p_center, p_left, top_left, right_top, center_left, center_right = setup()
+    check_state()
+    center_right.merge_with(center_left)
+    check_state()
+    setup()
+    check_state()
+    right_top.merge_with(top_left)
+    check_state()
+
+    blob_up, blob_down, p_top, p_center, p_left, top_left, right_top, center_left, center_right = setup()
+    check_state()
+    points_to_dissolve = [p_top, p_center]
+    for p in points_to_dissolve:
+        p_neighbors = p.get_adjacent_points()
+        p.dissolve_endpoint()
+        check_state()
+        assert p_neighbors == p.get_adjacent_points()
+    
+    with pytest.raises(ValueError):
+        p_left.dissolve_endpoint()
 

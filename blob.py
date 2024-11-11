@@ -398,17 +398,18 @@ class Blob:
                 correct = (chain.blob_right == self) and (chain.blob_left  != self)
                 if re and not correct:
                     raise ValueError(
-                        chain, "blob refererences are incorrect\n",
-                        f'expected right: self - {self}, actual: {chain.blob_right}\n',
-                        f'expected left: not self, actual: {chain.blob_left}'
+                        
+                        f"""{chain}, blob refererences are incorrect,
+                        expected right: self - {self}, actual: {chain.blob_right},
+                        expected left: not self, actual: {chain.blob_left}"""
                     )
             else:
                 correct = (chain.blob_left  == self) and (chain.blob_right != self)
                 if re and not correct:
                     raise ValueError(
-                        chain, "blob refererences are incorrect\n",
-                        f'expected right:not self,  actual: {chain.blob_right}\n',
-                        f'expected left: self - {self}, actual: {chain.blob_left}'
+                        f"""{chain}, blob refererences are incorrect\n,
+                        expected right:not self,  actual: {chain.blob_right}\n,
+                        expected left: self - {self}, actual: {chain.blob_left}"""
                     )
             if not correct:
                 return False
@@ -727,5 +728,18 @@ class Blob:
         point_number = self.point_number
         return (point_index+point_number//2)%point_number
 
+    name:str = None
+    
+    def __str__(self) -> str:
+        named = ""
+        if self.name is not None:
+            named = self.name+" "
+        info = f'{named}Blob with {len(self.chain_loop)} chains and {self.point_number} points'
+        if self.point_number>0:
+            info = info + f' at {self.get_point(0).co.xy}'
+        return info
 
-        
+    def __repr__(self):
+        obj_id = id(self)
+        hex_addr = hex(obj_id)[2:]  # Remove '0x' prefix
+        return f"<{str(self)} at 0x{hex_addr}>"
