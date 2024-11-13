@@ -587,7 +587,7 @@ class Blob:
             # minimal_width = self.actual_circumference/(math.pi)
             index_berth = (self.point_number//2) - 1
         else:
-            pass
+            pass 
         index_a, index_b, _= self.find_local_minimum_width_pair_under_target_width(sample_number=3, index_berth=index_berth,target_width=minimal_width)
         if index_a == -1: #code for - "didn't found a qualifying local minimum"
             return

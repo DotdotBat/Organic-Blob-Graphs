@@ -363,3 +363,8 @@ class Chain:
         if self.blob_right is not None and self.blob_right == self.blob_left:
             raise ValueError(self, "Chain references should not point to the same blob:", self.blob_left)
     
+    def switch_endpoint_to(self, endpoint:Point, target:Point):
+        is_start_point = endpoint == self.point_start
+        self.remove_point(endpoint)
+        self.append_endpoint(target, append_to_start=is_start_point)
+        
