@@ -18,6 +18,10 @@ def test_from_chain_loop():
     chain1 = Chain.from_point_list([p1, p2])
     chain2 = Chain.from_point_list([p2, p3])
     
+    with pytest.raises(ValueError):
+        blob = Blob.from_chain_loop([chain1, chain2])
+        #loop is not cicular in nature
+    chain2.switch_endpoint_to(p3, p1)
     blob = Blob.from_chain_loop([chain1, chain2])
     assert blob.chain_loop == [chain1, chain2]
     
@@ -110,8 +114,8 @@ def test_cut_at():
         cut_point = blob.get_point(cut_location)
         assert prev_chain.common_endpoint(next_chain) == cut_point
         before_chain, after_chain = blob.get_chains_at_intersection(cut_location)
-        assert before_chain.points == prev_chain.points
-        assert after_chain.points == next_chain.points
+        assert before_chain in [prev_chain, next_chain]
+        assert after_chain in [next_chain, prev_chain]
         assert blob.is_valid()
 
 
@@ -273,15 +277,8 @@ def test_from_ivalid_chain_loop():
     chain1 = Chain.from_point_list([p1, p2])
     chain2 = Chain.from_point_list([p2, p3])
     
-    invalid_blob = Blob.from_chain_loop([chain1, chain2]) #The chain isn't closed
-    assert invalid_blob.chain_loop == [chain1, chain2]
-    
-    # Check blob reference in chains
-    assert chain1.blob_right == invalid_blob or chain1.blob_left == invalid_blob
-    assert chain1.blob_left != chain1.blob_right
-    assert chain2.blob_right == invalid_blob or chain2.blob_left == invalid_blob
-    assert chain2.blob_left != chain2.blob_right
-    assert invalid_blob.is_valid() is not True
+    with pytest.raises(ValueError):
+        invalid_blob = Blob.from_chain_loop([chain1, chain2]) #The chain isn't closed
     
     chain3 = Chain.from_point_list([p1, p3])
     valid_blob = Blob.from_chain_loop([chain1, chain2, chain3])
@@ -292,9 +289,7 @@ def test_from_ivalid_chain_loop():
     first_chain.blob_left, first_chain.blob_right = first_chain.blob_right, first_chain.blob_left
     assert valid_blob.is_valid() is False
     first_chain.blob_left = None
-    first_chain.blob_right = invalid_blob
     assert valid_blob.is_valid() is False
-    first_chain.blob_right = invalid_blob
 
 
 
@@ -546,9 +541,8 @@ def test_one_chain_blob():
         Point(0, 1)
     ]
     unclosed_chain = Chain.from_point_list(points)
-    unclosed_blob = Blob.from_chain_loop([unclosed_chain])
-    assert unclosed_blob.is_valid() is False
-    assert_references(blobs=[unclosed_blob])
+    with pytest.raises(ValueError):
+        unclosed_blob = Blob.from_chain_loop([unclosed_chain])
 
     points.append(points[0])
     for point in points:
@@ -631,4 +625,75 @@ def test_dissolve_endpoint_remove_from_blobs():
     
     with pytest.raises(ValueError):
         p_left.dissolve_endpoint()
+
+
+def test_cut_at_shared_chain():
+
+    #plan:
+    #cut outer chain
+    #cut shared chain
+    #cut all points on a blob
+
+    def setup():
+        p1 = Point(0, 0)
+        p2 = Point(1, 0)
+        p3 = Point(2, 0)
+        p4 = Point(0, 1)
+        p5 = Point(1, 1)
+        p6 = Point(2, 1)
+        points = [p1, p2, p3,
+                  p4, p5, p6]
+        # here is a schema:
+        #   1 -- 2 -- 3
+        #   |    |    |
+        #   4 -- 5 -- 6
+        
+        # horisontal
+        chain_12 = Chain.from_end_points(p1, p2, point_num=3)
+        chain_23 = Chain.from_end_points(p2, p3, point_num=3)
+        chain_45 = Chain.from_end_points(p4, p5, point_num=3)
+        chain_56 = Chain.from_end_points(p5, p6, point_num=3)
+
+        # vertical
+        chain_14 = Chain.from_end_points(p1, p4, point_num=3)
+        chain_25 = Chain.from_end_points(p2, p5, point_num=3)
+        chain_36 = Chain.from_end_points(p3, p6, point_num=3)
+        chains = [chain_12, chain_23, chain_45, chain_56, 
+                  chain_14, chain_25, chain_36]
+
+        outher_chain = chain_12
+        shared_chain = chain_25
+
+        blob_left = Blob.from_chain_loop([chain_12, chain_25, chain_45, chain_14])
+        blob_right = Blob.from_chain_loop([chain_23, chain_36, chain_56, chain_25])
+        blobs = [blob_left, blob_right]
+        return blobs, chains, points, outher_chain, shared_chain
+    
+    blobs, chains, points, outher_chain, shared_chain = setup()
+    def check_state():
+        for blob in blobs:
+            assert blob.is_valid(raise_errors=True)
+        assert_references(blobs, chains, points)
+
+    def check_result(result:tuple[Chain]):
+        for chain in result:
+            assert chain.point_number>1
+        chain_a, chain_b = result
+        assert chain_a != chain_b
+        assert chain_a.is_connected_to(chain_b)
+        check_state()
+
+    check_result(outher_chain.cut(1)) #middle
+    check_result(shared_chain.cut(1))
+    
+    blob = blobs[1]
+    blobs, chains, points, outher_chain, shared_chain = setup()
+    for i in range(blob.point_number):
+        check_result(blob.cut_at(i))
+
+    # inputting Point instead of index
+    outher_chain_point = outher_chain.points[1]
+    check_result(outher_chain.cut(outher_chain_point))
+
+
 

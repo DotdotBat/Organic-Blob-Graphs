@@ -172,9 +172,26 @@ class Chain:
             return True
         return self.blob_left.is_unmoving_override or self.blob_right.is_unmoving_override    
     
-    def cut(self, point_index:int):
+    @property
+    def blobs(self):
+        blobs = []
+        if self.blob_right is not None:
+            blobs.append(self.blob_right)
+        if self.blob_left is not None:
+            blobs.append(self.blob_left)
+        return blobs
+    
+    def cut(self, point_index:int|Point):
+        if type(point_index) is Point:
+            point_index = self.points.index(point_index)
         if point_index <= 0 or point_index >= self.point_number - 1:
             raise ValueError("You are trying to cut too close to one of the ends of the chain. You are cutting at:", point_index, "While minimum is 1 and max is", self.point_number-2)
+        
+        #remember the chain orientation, because a valid blob state is required for its calculation
+        is_flipped = []
+        for blob in self.blobs:
+            is_flipped.append(blob.is_chain_backwards(self))
+        
         for point in self.points:
             point.chains.discard(self)
 
@@ -189,8 +206,17 @@ class Chain:
         chain_end = Chain.from_point_list(points=end_points, color=self.color)
         chain_end.set_blobs(right=self.blob_right, left=self.blob_left)
 
-        if not chain_start.is_connected_to(chain_end):
-            raise RuntimeError()
+        assert chain_start.is_connected_to(chain_end)
+
+        for i, blob in enumerate(self.blobs):
+
+            old_chain_index = blob.chain_loop.index(self)
+            blob.chain_loop.remove(self)
+            start, end = chain_start, chain_end
+            if is_flipped[i]:
+                start, end = end, start
+            blob.chain_loop.insert(old_chain_index, end)
+            blob.chain_loop.insert(old_chain_index, start)
         
         return chain_start, chain_end
     

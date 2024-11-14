@@ -10,6 +10,7 @@ class Blob:
     """Blob is a a data structure holding a chain loop. Each chain consists of points. So you can think of blobs as a point rings. Chains can be forward or backward depending on whether their inner order of points aligns with the blob's chain loop. Or you can think of blobs as a representaion of 2d bubbles, where chains are the shared edges between the bubbles."""
     def __init__(self) -> None:
         self.chain_loop = list()
+        
     
     @classmethod
     def from_chain_loop(cls, ccw_chain_loop:List[Chain]):
@@ -27,6 +28,7 @@ class Blob:
                 chain.set_blobs(right=blob)
             else:
                 chain.set_blobs(left=blob)
+        assert blob.is_valid(raise_errors=True)
         return blob
 
     
@@ -195,18 +197,7 @@ class Blob:
             return self.get_chains_at_intersection(point_index)
         
         chain, on_chain_point_index = self.get_chain_and_on_chain_point_index_at(point_index)
-        old_chain_index = self.chain_loop.index(chain)
-        is_flipped = self.is_chain_backwards(chain)
-        self.chain_loop.remove(chain)
         chain_start, chain_end = chain.cut(on_chain_point_index)
-        if is_flipped:
-            chain_start, chain_end = chain_end, chain_start
-        self.chain_loop.insert(old_chain_index, chain_end)
-        self.chain_loop.insert(old_chain_index, chain_start)
-
-        if not self.is_intersection_at(point_index):
-            raise RuntimeError("Cut method cut at the wrong place or the intersection check checks in the wrong place", point_index)
-
         return chain_start, chain_end
     
     def get_chains_indexes_at_intersection(self, point_index:int):
