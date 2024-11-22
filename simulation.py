@@ -2,7 +2,6 @@ import pygame
 import math
 from typing import List
 import state
-from state import chains
 from chain import Chain
 from point import Point
 from blob import Blob
@@ -107,3 +106,8 @@ def find_all_endpoints(chains:list[Chain]):
             endpoints.add(chain.point_start)
             endpoints.add(chain.point_end)
     return endpoints
+
+def simulation_step(blobs:list[Blob]):
+    chains = state.get_chains_list(blobs)
+    movable_chains = state.get_movable_chains(chains)
+    

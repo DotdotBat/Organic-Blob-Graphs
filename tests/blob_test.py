@@ -695,5 +695,53 @@ def test_cut_at_shared_chain():
     outher_chain_point = outher_chain.points[1]
     check_result(outher_chain.cut(outher_chain_point))
 
+def test_get_points_common_chain_with_only_two_chains():
+    # Case a: Blob with two chains, 5 points in one chain and 3 points in the other
+    p1 = Point(0, 0)
+    p2 = Point(100, 100)
+
+    big_chain = Chain.from_end_points(p1, p2, point_num=5)  # 5 points
+    small_chain = Chain.from_end_points(p1, p2, point_num=3)  # 5 points
+
+    blob = Blob.from_chain_loop([big_chain, small_chain])
+
+    # Get intersection indexes
+    intersections = blob.intersection_indexes
+    assert len(intersections) == 2
+    assert intersections == [4, 6] #just testing my understanding
+    central_index, index2 = intersections
+    
+
+    # Rule a: Always return the smaller chain (chain2)
+    common_chain = blob.get_points_common_chain(central_index, index2)
+    assert common_chain == small_chain
+    common_chain = blob.get_points_common_chain(index2, central_index)
+    assert common_chain == small_chain
+
+    blob = blob.from_chain_loop([small_chain, big_chain])
+    intersections = blob.intersection_indexes
+    assert len(intersections) == 2
+    central_index, index2 = intersections
+    common_chain = blob.get_points_common_chain(central_index, index2)
+    assert common_chain == small_chain
+    common_chain = blob.get_points_common_chain(index2, central_index)
+    assert common_chain == small_chain
 
 
+    # Case c: Blob with two chains, both having 4 points
+    first_chain = Chain.from_end_points(p1, p2, point_num=4)  # 5 points
+    second_chain = Chain.from_end_points(p1, p2, point_num=4)  # 5 points
+
+    blob = Blob.from_chain_loop([first_chain, second_chain])
+
+    # Get intersection indexes
+    intersections = blob.intersection_indexes
+    assert len(intersections) == 2
+    central_index, index2 = intersections
+
+    # Rule c: Index order determines the result - only if the number of points on both chains is equal
+    common_chain = blob.get_points_common_chain(central_index, index2)
+    assert common_chain == second_chain
+
+    common_chain = blob.get_points_common_chain(index2, central_index)
+    assert common_chain == first_chain

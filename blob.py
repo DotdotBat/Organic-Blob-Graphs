@@ -479,6 +479,23 @@ class Blob:
         return chains
     
     def get_points_common_chain_index(self, point1_index, point2_index):
+        #special case:
+        if len(self.chain_loop) ==2 and self.is_intersection_at(point1_index) and self.is_intersection_at(point2_index):
+            chain1, chain2 = self.chain_loop
+            if chain1.point_number != chain2.point_number:
+                common_chain = chain1 if chain1.point_number<chain2.point_number else chain2
+            else:
+                central_index = self.intersection_indexes[0] 
+                # the index of the point between the chains as they are placed in chain loop. 
+                # We are in a special case of a special case, 
+                # I found this to be useful exactly once, 
+                # can be changed painlessly if need be. 
+                common_chain= chain2 if point1_index == central_index else chain1
+            
+            index = 0 if common_chain==chain1 else 1
+            return index
+
+
         point1_chains_indexes = self.get_chains_indexes_at_point(point1_index)
         for chain_index in point1_chains_indexes:
             chain = self.chain_loop[chain_index]
@@ -515,11 +532,9 @@ class Blob:
             if chain == common_chain:
                 common_chain.remove_point(point)
                 if common_chain.point_number < 2:
-                    common_chain.remove_point(next_point)
-                    common_chain.unregister_from_blobs()
-
+                    common_chain.unregister()
             else:
-                chain.swap_point( point_to_remove=point, point_to_insert=next_point)
+                chain.swap_point(point_to_remove=point, point_to_insert=next_point)
         return point
     
     def find_biggest_gap_indexes(self, only_movable_chains = True):

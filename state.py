@@ -8,7 +8,10 @@ from point import Point
 
 width = 720
 height = 480
-chains: Set[Chain] = set()
+
+# chains: Set[Chain] = set() 
+#it is preferrable to derive it each frame, as it will clearly become cumbersome to keep track of them. 
+
 blobs: List[Blob] = list()
 lesser_dimention = min(width, height)
 resolution = lesser_dimention/100
@@ -24,10 +27,16 @@ frame_count = 0
 
 point_of_interest:Point = None
 
-def get_movable_chains():
-    return [chain for chain in chains if not chain.is_unmoving]
-
 def draw_callback()->None:
     raise RuntimeError("Forgot to set the draw callback in main_file")
 
 screen = pygame.display.get_surface()
+
+def get_chains_list(blobs:list[Blob]):
+    chains = set()
+    for blob in blobs:
+        chains.update(blob.chain_loop)
+    return chains
+
+def get_movable_chains(chains:list[Chain]):
+    return [chain for chain in chains if not chain.is_unmoving]

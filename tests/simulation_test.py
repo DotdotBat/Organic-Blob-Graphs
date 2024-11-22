@@ -53,21 +53,22 @@ def test_apply_blob_area_equalization_force():
 
 from blob_test import assert_references
 def test_remove_and_insert_midpoint():
-    # Create a uniform square blob with 4 points on each side
+    # Create a uniform square blob with 5 points on each side
     p1 = Point(0, 0)
     p2 = Point(0, 100)
     p3 = Point(100, 100)
     p4 = Point(100, 0)
-    chain1 = Chain.from_end_points(p1, p2, point_num=4)
-    chain2 = Chain.from_end_points(p2, p3, point_num=4)
-    chain3 = Chain.from_end_points(p3, p4, point_num=4)
-    chain4 = Chain.from_end_points(p4, p1, point_num=4)
+    chain1 = Chain.from_end_points(p1, p2, point_num=5)
+    chain2 = Chain.from_end_points(p2, p3, point_num=5)
+    chain3 = Chain.from_end_points(p3, p4, point_num=5)
+    chain4 = Chain.from_end_points(p4, p1, point_num=5)
     blob = Blob.from_chain_loop([chain1, chain2, chain3, chain4])
-    for point_index in range(blob.point_number):
+    assert blob.is_valid(raise_errors=True)
+    for point_index in range(0,blob.point_number):
         # Remove a point
         point_to_remove = blob.get_point(point_index)
         blob.remove_point(point_index)
-        
+        assert blob.is_valid(raise_errors=True)
         # Test that the point is removed
         assert point_to_remove not in [point for chain in blob.chain_loop for point in chain.points]
         
@@ -243,5 +244,80 @@ def test_enforce_minimal_width():
         opposite_index = blob.opposite_index(point_index)
         distance = blob.points_distance(point_index, opposite_index)
         assert distance >= minimal_width_too_big
+
+
+def test_joint_sliding():
+    # Construct the tube
+    width = 100
+    height = 20
+    p1 = Point(0, 0)
+    p2 = Point(width, 0)
+    p3 = Point(width, height)
+    p4 = Point(0, height)
+    center_coordinates = p1.co.lerp(p3.co, 0.5)
+    
+    # Create chains with a link length of 10
+    chain1 = Chain.from_end_points(p1, p2, link_length=10)
+    chain2 = Chain.from_end_points(p2, p3, link_length=10)
+    chain3 = Chain.from_end_points(p3, p4, link_length=10)
+    left_chain = Chain.from_end_points(p4, p1, link_length=10)
+
+    # Create the membrane chain
+    membrane_chain = Chain.from_end_points(p1, p4, point_num=5)
+    membrane_chain.points[1].co.x += 5
+    membrane_chain.points[2].co.x += 5
+
+    
+
+    # Create blobs
+    small_blob = Blob.from_chain_loop([left_chain, membrane_chain])
+    big_blob = Blob.from_chain_loop([chain1, chain2, chain3, membrane_chain])
+    small_blob.link_length, big_blob.link_length = 10,10
+    
+
+    #remember state before simulation for comparison during testing
+    past_membrane_coordinates = membrane_chain.get_co_tuples()
+    past_blob_circum_diff = abs(big_blob.actual_circumference - small_blob.actual_circumference)
+    big_blob.recalculate_area()
+    small_blob.recalculate_area()
+    past_blob_area_diff = abs(big_blob.cashed_area - small_blob.cashed_area)
+
+    # Apply simulation
+    for _ in range(5):
+        simulation.simulation_step(blobs = [small_blob, big_blob])
+
+    #check that the membrane moved at all
+    membrane_coordinates = membrane_chain.get_co_tuples()
+    assert membrane_coordinates != past_membrane_coordinates, f"Membrane did not move: {membrane_coordinates}"
+
+    #check that the membrane moved closer to the center
+    for i, xy in enumerate(membrane_coordinates):
+        now = Vector2(xy)
+        then = Vector2(past_membrane_coordinates[i])
+        assert now.distance_to(center_coordinates) < then.distance_to(center_coordinates), f"{point} of membrane did not move towards the center. Here are the current membrane coordinates: {membrane_coordinates}"
+
+    #check that all the points are still inside the tube of on its sides
+    def is_within_tube(point:Point):
+        x, y = point.co.xy
+        if x<0 or x>width:
+            return False
+        if y<0 or y>height:
+            return False
+        return True
+    
+    for i, point in enumerate(membrane_chain.points):
+        assert is_within_tube(point), f"{point} number {i} from membrane chain is outside the frame"
+    
+
+    #check that the difference in areas of the blobs has decreased 
+    big_blob.recalculate_area()
+    small_blob.recalculate_area()
+    blob_area_diff = abs(big_blob.cashed_area - small_blob.cashed_area)
+    assert blob_area_diff < past_blob_area_diff, "Blob area equalization failed"
+
+    #check that the difference in circumference of the blobs has decreased
+    blob_circum_diff = abs(big_blob.actual_circumference - small_blob.actual_circumference)
+    assert blob_circum_diff < past_blob_circum_diff, "Blob circumference equalization failed"
+    
 
 

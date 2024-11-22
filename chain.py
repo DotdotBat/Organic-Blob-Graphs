@@ -68,7 +68,7 @@ class Chain:
         if not point_num:
             point_num = math.ceil(chain_length/link_length)
         for i in range(1, point_num-1):
-            t = i/point_num
+            t = i/(point_num-1)
             inter = start.co.lerp(end.co, t)
             point = Point(inter.x, inter.y)
             points.append(point)
