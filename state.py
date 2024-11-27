@@ -40,3 +40,14 @@ def get_chains_list(blobs:list[Blob]):
 
 def get_movable_chains(chains:list[Chain]):
     return [chain for chain in chains if not chain.is_unmoving]
+
+def get_movable_joints(chains:list[Chain])->list[Point]:
+    points = set()
+    for chain in chains:
+        if not chain.point_start.is_unmoving:
+            points.add(chain.point_start)
+        if not chain.point_end.is_unmoving:
+            points.add(chain.point_end)
+    return list(points)
+
+

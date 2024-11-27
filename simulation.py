@@ -1,3 +1,4 @@
+import warnings
 import pygame
 import math
 from typing import List
@@ -51,11 +52,11 @@ def simulate(dt:float):
     for chain in state.chains:
         chain.apply_accumulated_offsets()
 
-def add_area_equalization_offset(movable_chains: List[Chain]):
-    for blob in state.blobs:
+def add_area_equalization_offset(blobs:list[Blob], resolution:float, movable_chains: List[Chain]):
+    for blob in blobs:
         blob.recalculate_area()
     for chain in movable_chains:
-        max_offset = state.resolution*2
+        max_offset = resolution*2
         left_area, right_area = chain.blob_left.cashed_area, chain.blob_right.cashed_area
         scale = 1 - (min(left_area, right_area) / max(left_area, right_area))
 
@@ -107,7 +108,41 @@ def find_all_endpoints(chains:list[Chain]):
             endpoints.add(chain.point_end)
     return endpoints
 
-def simulation_step(blobs:list[Blob]):
+def enforce_minimal_width(blobs:list[Blob], minimal_width):
+    for blob in blobs:
+        blob.enforce_minimal_width(minimal_width)
+
+def enforce_link_length(chains:list[Chain], link_length:float):
+    for chain in chains:
+        chain.enforce_link_length(link_length)
+
+def apply_offsets(chains:list[Chain]):
+    for chain in chains:
+        chain.apply_accumulated_offsets()
+
+def smooth_out_shapes(blobs:list[Blob]):
+    for blob in blobs:
+        if not blob.is_unmoving_override == True:
+            #blob.smooth_out()
+            warnings.warn("Smoothing is not implemented")
+            #todo: implement smoothing function
+
+
+def slide_joints(joint:list[Point]):
+    warnings.warn("Joints movement is not implemented")
+    pass
+
+
+def simulation_step(blobs:list[Blob], resolution:float, minimal_width:float):
     chains = state.get_chains_list(blobs)
     movable_chains = state.get_movable_chains(chains)
+    add_area_equalization_offset(blobs=blobs, resolution=resolution, movable_chains=movable_chains)
+    enforce_minimal_width(blobs, minimal_width)
+    enforce_link_length(chains=movable_chains, link_length=resolution)
+    smooth_out_shapes(blobs=blobs)
+    apply_offsets(movable_chains)
+    movable_joints = state.get_movable_joints(movable_chains)
+    slide_joints(movable_joints)
+
+    
     

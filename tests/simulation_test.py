@@ -38,7 +38,7 @@ def test_apply_blob_area_equalization_force():
         movable_chains = [chain for chain in all_chains if not chain.is_unmoving]
         assert len(movable_chains) > 0
 
-        simulation.add_area_equalization_offset(movable_chains)
+        simulation.add_area_equalization_offset(blobs=[big_blob, small_blob], resolution=10, movable_chains=movable_chains)
         for chain in movable_chains:
             chain.apply_accumulated_offsets()
         
@@ -272,7 +272,8 @@ def test_joint_sliding():
     # Create blobs
     small_blob = Blob.from_chain_loop([left_chain, membrane_chain])
     big_blob = Blob.from_chain_loop([chain1, chain2, chain3, membrane_chain])
-    small_blob.link_length, big_blob.link_length = 10,10
+    link_length = 10
+    small_blob.link_length, big_blob.link_length = link_length,link_length
     
 
     #remember state before simulation for comparison during testing
@@ -284,7 +285,7 @@ def test_joint_sliding():
 
     # Apply simulation
     for _ in range(5):
-        simulation.simulation_step(blobs = [small_blob, big_blob])
+        simulation.simulation_step(blobs = [small_blob, big_blob], resolution=link_length,  minimal_width = link_length *2)
 
     #check that the membrane moved at all
     membrane_coordinates = membrane_chain.get_co_tuples()
@@ -294,6 +295,7 @@ def test_joint_sliding():
     for i, xy in enumerate(membrane_coordinates):
         now = Vector2(xy)
         then = Vector2(past_membrane_coordinates[i])
+        point = membrane_chain.points[i]
         assert now.distance_to(center_coordinates) < then.distance_to(center_coordinates), f"{point} of membrane did not move towards the center. Here are the current membrane coordinates: {membrane_coordinates}"
 
     #check that all the points are still inside the tube of on its sides
