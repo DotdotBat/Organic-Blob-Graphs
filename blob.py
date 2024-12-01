@@ -28,7 +28,7 @@ class Blob:
                 chain.set_blobs(right=blob)
             else:
                 chain.set_blobs(left=blob)
-        assert blob.is_valid(raise_errors=True)
+        blob.assert_is_valid()
         return blob
 
     
@@ -276,88 +276,55 @@ class Blob:
 
         self.chain_loop = chlp[:]
 
-    def are_all_references_mutual(self, raise_errors=False):
+    def assert_all_references_are_mutual(self):
         chains = self.chain_loop
         chains_points = {point for chain in chains for point in chain.points}
         points = list(chains_points)
 
         # Blob -> Chain
         for chain in self.chain_loop:
-            cbr, cbl = chain.blob_right, chain.blob_left
-            if not (cbr == self or cbl == self):
-                if raise_errors:
-                    raise ValueError("Chain blob references are incorrect", chain)
-                return False
-            if cbr == cbl:
-                if raise_errors:
-                    raise ValueError("Both sides cannot be the same blob", chain)
-                return False
+            assert self in chain.blobs
 
         # Chain -> Blob
         for chain in chains:
-            if chain.blob_right and chain not in chain.blob_right.chain_loop:
-                if raise_errors:
-                    raise ValueError("Chain is not in blob_right's chain loop", chain)
-                return False
-            if chain.blob_left and chain not in chain.blob_left.chain_loop:
-                if raise_errors:
-                    raise ValueError("Chain is not in blob_left's chain loop", chain)
-                return False
-            if chain.blob_left and chain.blob_right and chain.blob_right == chain.blob_left:
-                if raise_errors:
-                    raise ValueError("Blob right and left are the same", chain)
-                return False
+            for blob in chain.blobs:
+                assert chain in blob.chain_loop, "Chain is not found it blob's chain loop"
 
         # Chain -> Point
         for chain in chains:
             for point in chain.points:
-                if chain not in point.chains:
-                    if raise_errors:
-                        raise ValueError("Chain not found in point's chains set", point)
-                    return False
+                assert chain in point.chains, "Chain not found in point's chains set"
 
         # Point -> Chain
         for point in points:
             for chain in point.chains:
-                if point not in chain.points:
-                    if raise_errors:
-                        raise ValueError("Point not found in chain's points", point)
-                    return False
+                assert point in chain.points,"Point not found in chain's points"
 
-        if not points:
-            if raise_errors:
-                raise RuntimeError("No points found in chains")
-            return False
+        assert points, "No points found in chains"
+            
+        
+        for point in points:
+            for other in point.connected_points:
+                assert point in other.connected_points
 
-        return True
-
-
-    def is_valid(self, raise_errors = False):
-        #todo: refactor into separate functions
-        re = raise_errors
-        if len(self.chain_loop)<1:
-            if re: raise RuntimeError("Chain loop is empty")
-            return False
+    def assert_is_valid(self):
+        assert len(self.chain_loop)>0 , "Chain loop is empty"
         
         for chain in self.chain_loop:
-            if chain.point_number < 2:
-                if re: raise RuntimeError("Chain is too short", chain)
-                return False
+            chain.assert_is_valid()
         
+        #----------------------#
         #loop connectivity check
-        ########################
+        #----------------------#
         if len(self.chain_loop) == 1:
             chain = self.chain_loop[0]
-            if chain.point_start != chain.point_end:
-                if re: raise ValueError("A single, non-circlular chain")
-                return False
+            assert chain.point_start == chain.point_end, "Blob composed of a single, non-circlular chain"
 
         prev_chain = self.chain_loop[-1]
         for chain in self.chain_loop:
-            if not chain.is_connected_to(prev_chain):
-                if re: raise RuntimeError(prev_chain, " is not connected to ", chain)
-                return False
+            assert chain.is_connected_to(prev_chain), f"{prev_chain} is not connected to {chain}"
             prev_chain = chain
+
         if len(self.chain_loop) == 2:
             c1 = self.chain_loop[0]
             c2 = self.chain_loop[1]
@@ -374,11 +341,14 @@ class Blob:
                 disconnected = True
             if e_to_s and not s_to_e:
                 disconnected = True
-            if disconnected:
-                if re: raise ValueError("Blob of two chains is not circularly connected: ",self.chain_loop)
-                return False
+            assert not disconnected ,f"Blob of two chains is not circularly connected: {self.chain_loop}"
 
+        #------------------------------#
         #Blob_references on chains check
+        #------------------------------#
+        self.assert_all_references_are_mutual()
+
+        #now check that this blob is referenced on the correct(right or left) side of each chain
         is_cw = self.is_clockwise()
         blob_on_right_side = is_cw
         for i, chain in enumerate(self.chain_loop):
@@ -387,29 +357,16 @@ class Blob:
                 blob_on_right_side_of_this_chain = not blob_on_right_side_of_this_chain
             if blob_on_right_side_of_this_chain:
                 correct = (chain.blob_right == self) and (chain.blob_left  != self)
-                if re and not correct:
-                    raise ValueError(
-                        
-                        f"""{chain}, blob refererences are incorrect,
+                assert correct, f"""{chain}, blob refererences are incorrect,
                         expected right: self - {self}, actual: {chain.blob_right},
                         expected left: not self, actual: {chain.blob_left}"""
-                    )
             else:
                 correct = (chain.blob_left  == self) and (chain.blob_right != self)
-                if re and not correct:
-                    raise ValueError(
-                        f"""{chain}, blob refererences are incorrect\n,
+                assert correct, f"""{chain}, blob refererences are incorrect\n,
                         expected right:not self,  actual: {chain.blob_right}\n,
                         expected left: self - {self}, actual: {chain.blob_left}"""
-                    )
-            if not correct:
-                return False
             
 
-        if not self.are_all_references_mutual(raise_errors=raise_errors):
-            return False
-        return True
-    
     cashed_area: float
     def recalculate_area(self):
         area = 0 

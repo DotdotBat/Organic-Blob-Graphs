@@ -4,6 +4,7 @@ class Point:
         self.co = Vector2(x, y)
         self.offset = Vector2(0,0)
         self.chains = set()
+        self.connected_points = set()
 
     def add_offset(self, x:float, y:float, multiplier=1):
         self.offset.x += x * multiplier
@@ -111,7 +112,7 @@ class Point:
     def is_endpoint_of_chain(self, chain):
         return self == chain.point_start or self == chain.point_end
     
-    def get_adjacent_points(self):
+    def get_connected_points_via_chains(self) -> list["Point"]:
         adjacent_points = []
         if self.is_endpoint_on_all_chains:
             for chain in self.chains:
@@ -124,7 +125,10 @@ class Point:
             adjacent_points.append(chain.points[self_index+1])
         return adjacent_points
     
-    def closest_of_points(self, others:list["Point"]):
+    def closest_of_points(self, others:list["Point"], dont_ignore_self=False):
+        if not dont_ignore_self and self in others:
+            others= others.copy()
+            others.remove(self)
         if len(others)<1:
             raise ValueError("Nothing to compare to in ", others)
         closest = others[0]
@@ -139,6 +143,59 @@ class Point:
             raise ValueError("invalid state")
         if len(chains) != 2:
             raise ValueError("Trying to dissolve a point that doesn't have exactly 2 chains", self, self.chains)
-        chains[0].merge_with(chains[1])
+        longer_chain = chains[0] if chains[0].point_number > chains[1].point_number else chains[1]
+        shorter_chain = chains[1] if chains[0] == longer_chain else chains[0]
+        longer_chain.merge_with(shorter_chain)
             
+    def get_common_chain(self, other:"Point"):
+        if self == other:
+            raise ValueError(self, "was passed as the other, must be unintended")
+        chain_set = self.chains.intersection(other.chains)
+        if len(chain_set) < 1:
+            raise ValueError(self, "and", other, "don't have any chains in common") 
+        
+
+        chain_list = list(chain_set)
+        if len(chain_list) > 1:
+            #there might be more than one chain
+            #in this case, we will return the shortest one
+            chain_list = sorted(chain_list, key=lambda c: c.point_number)
+        return chain_list[0]
+    
+    def connect_point(self, other:"Point"):
+        if other == self:
+            raise ValueError("Tried to connect to self", self)
+        self.connected_points.add(other)
+        other.connected_points.add(self)
+    
+    def disconnect_point(self, other:"Point"):
+        if self.is_connected_to_point(other):
+            self.connected_points.remove(other)
+            other.connected_points.remove(self)
+    
+    def is_connected_to_point(self, other:"Point"):
+        if self in other.connected_points or other in self.connected_points:
+            if not (self in other.connected_points and other in self.connected_points):
+                raise RuntimeError("non mutual connection:", self, other)
+            return True
+        return False
+    
+    def assert_point_is_valid(self, check_local_chains_structure_too = True):        
+        #are references to other points mutual? 
+        for other in self.connected_points:
+            other:"Point"
+            assert self in other.connected_points , f"Non mutual connection between {self} and {other}"
+        
+
+        #does the local chain structure correspond to the point connections?
+        if not check_local_chains_structure_too:
+            return #stop here as chains are not correspoinding to point connection
+        
+        if len(self.connected_points)>0:
+            assert len(self.chains)>0, "if Point has connected points, it means that it should be on a chain"
+
+        assert self.connected_points == set(self.get_connected_points_via_chains()), "Connected points do not map correctly to local chain structure"
+
+
+
 

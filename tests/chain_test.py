@@ -16,6 +16,7 @@ def test_point_start_and_end():
     assert c.point_start == p1
     assert c.point_end == p2
     assert c.color == pygame.Color("white")
+    c.assert_is_valid()
 
 def test_points_number():
     p1 =Point(0, 0)
@@ -34,6 +35,7 @@ def test_from_coord_list():
     c = Chain.from_coord_list(coords)
     assert c.points[0].co == Vector2(0, 0)
     assert c.points[1].co == Vector2(1, 1)
+    c.assert_is_valid()
 
 def test_apply_accumulated_offsets():
     p1 = Point(0, 0)
@@ -59,6 +61,8 @@ def test_cut():
     chain_start, chain_end = c.cut(1)
     assert chain_start.points == [p1, p2]
     assert chain_end.points == [p2, p3]
+    chain_start.assert_is_valid()
+    chain_end.assert_is_valid()
 
 def test_add_point():
     p1 = Point(0, 0)
@@ -70,6 +74,7 @@ def test_add_point():
     
     assert c.points == [p1, p2, p3]
     assert c.points != [p2]
+    c.assert_is_valid()
 
 def test_common_endpoint():
     p1 = Point(0, 0)
@@ -144,6 +149,7 @@ def test_add_right_offset():
     
     chain.add_right_offset(offset_magnitude, ignore_umoving_status=True)
     chain.apply_accumulated_offsets(ignore_unmoving_status=True)
+    chain.assert_is_valid()
     
     # Check new positions for positive offset
     for i, point in enumerate(chain.points):
@@ -156,6 +162,7 @@ def test_add_right_offset():
     for point in chain.points:
         assert point.offset.x == pytest.approx(0)
         assert point.offset.y == pytest.approx(0)
+    
 
 from blob_test import create_valid_blob
 def test_get_on_blob_point_index():
@@ -189,6 +196,7 @@ def test_insert_midpoint():
         assert chain.points[i + 1] == midpoint
         next_i = (i+2)% chain.point_number
         assert chain.points[next_i] == point2
+        chain.assert_is_valid()
         
 import pytest
 from point import Point
@@ -246,6 +254,8 @@ def test_point_chains_references_management():
     assert chain2a in chains
     assert_references(chains=chains)
     assert_references(points= points)
+    for chain in chains:
+        chain.assert_is_valid()
 
 
 def test_find_biggest_gap_basic_case():
@@ -422,6 +432,8 @@ def test_dissolve_endpoint_basic_merge():
 
     chain1 = Chain.from_point_list([p1, p2])
     chain2 = Chain.from_point_list([p2, p3, p4])
+    chain1.assert_is_valid()
+    chain2.assert_is_valid()
 
     # Dissolve endpoint p2 which connects both chains
     p2.dissolve_endpoint()
@@ -434,6 +446,7 @@ def test_dissolve_endpoint_basic_merge():
     # Check that chain1 now contains all points
     for point in [p1, p2, p3, p4]:
         assert point in full_chain.points
+    full_chain.assert_is_valid()
 
 def test_dissolve_endpoint_order_preservation():
     p1 = Point(0, 0)
@@ -541,12 +554,14 @@ def test_switch_endpoint_to_start():
     chain = Chain.from_point_list([p1, p2, p3])
     chains = [chain]
     assert_references(chains=chains, points=points)
+    chain.assert_is_valid()
 
     chain.switch_endpoint_to(p1, target)
 
     assert chain.point_start == target
     assert chain.points == [target, p2, p3]
     assert_references(chains=chains, points=points)
+    chain.assert_is_valid()
 
 def test_switch_endpoint_to_end():
     p1 = Point(0, 0)
@@ -564,6 +579,7 @@ def test_switch_endpoint_to_end():
     assert chain.point_end == target
     assert chain.points == [p1, p2, target]
     assert_references(chains=chains, points=points)
+    chain.assert_is_valid()
 
 def test_switch_endpoint_to_invalid_endpoint():
     p1 = Point(0, 0)
@@ -625,3 +641,5 @@ def test_switch_endpoint_to_one_point_chain():
     assert chain.point_end == target
     assert chain.points == [target]
     assert_references(chains=chains, points=points)
+    with pytest.raises(AssertionError):
+        chain.assert_is_valid()#it is a one point chain, it is invalid

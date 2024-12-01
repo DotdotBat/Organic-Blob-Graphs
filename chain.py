@@ -49,6 +49,13 @@ class Chain:
         chain.points = points[:] #list soft copy 
         for point in points:
             point.chains.add(chain)
+        #todo: connect point to it's neighbors
+        for i, point in enumerate(chain.points):
+            last_index = len(chain.points) - 1
+            next_point = chain.points[i+1] if not i == last_index else None
+            if next_point is None:
+                break
+            point.connect_point(next_point)
         return chain
     
     @classmethod
@@ -135,9 +142,12 @@ class Chain:
     def append_endpoint(self, point:Point, append_to_start:bool):
         point.chains.add(self)
         if append_to_start:
+            neighbor = self.point_start
             self.points.insert(0, point)
         else:
+            neighbor = self.point_end
             self.points.append(point)
+        neighbor.connect_point(point)
     
     def common_endpoint(self, other:'Chain', raise_error_if_none = True):
         ss = self.point_start
@@ -292,17 +302,32 @@ class Chain:
         midpoint.chains.add(self)
         mid_offset = (point.offset + next_point.offset)/2
         midpoint.offset = mid_offset
+        point.disconnect_point(next_point)
+        midpoint.connect_point(point)
+        midpoint.connect_point(next_point)
         self.points.insert(point_index+1, midpoint)
         return midpoint
     
     def remove_point(self, point:int|Point):
         if type(point) == int:
             point_index = point
-            point = self.points.pop(point_index)
+            point = self.points[point_index]
         else:
+            point_index =  point_index = self.points.index(point)
             point:Point
-            self.points.remove(point)
+        last_index = len(self.points)-1
+        if point_index>0 and point_index<last_index:
+            previous_point = self.points[point_index-1]
+            next_point = self.points[point_index+1]
+            previous_point.connect_point(next_point)
+        if point_index>0:
+            previous_point = self.points[point_index-1]
+            point.disconnect_point(previous_point)
+        if point_index<last_index:
+            next_point = self.points[point_index+1]
+            point.disconnect_point(next_point)
         point.chains.remove(self)
+        self.points.remove(point) 
         return point
     
     def swap_point(self, point_to_remove:Point, point_to_insert:Point):
@@ -393,4 +418,25 @@ class Chain:
         is_start_point = endpoint == self.point_start
         self.remove_point(endpoint)
         self.append_endpoint(target, append_to_start=is_start_point)
+        
+    def assert_is_valid(self):
+        assert self.point_number >= 2
+        for i, point in enumerate(self.points):
+            assert self in point.chains, "Non mutual chain-point reference"
+            point.assert_point_is_valid()
+            previous_point = self.points[i-1] if i>0 else None
+            if previous_point is None:
+                continue
+            assert point.is_connected_to_point(previous_point)
+        
+        for point in self.points:
+            if point not in [self.point_start, self.point_end]:
+                assert len(point.chains) == 1
+                assert len(point.connected_points) == 2
+
+        for blob in self.blobs:
+            assert self in blob.chain_loop, "Non mutual blob-chain reference"
+        
+        if len(self.blobs) == 2:
+            assert self.blob_left != self.blob_right
         

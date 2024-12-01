@@ -128,10 +128,42 @@ def smooth_out_shapes(blobs:list[Blob]):
             #todo: implement smoothing function
 
 
-def slide_joints(joint:list[Point]):
-    warnings.warn("Joints movement is not implemented")
-    pass
+def slide_joints(joints:list[Point]):
+    for joint in joints:
+        neighbors = joint.get_connected_points_via_chains()
+        movable_neighbors = [point for point in neighbors if not point.is_unmoving]
+        if len(movable_neighbors) == 0:
+            continue
+        #find the movable neighbor that wants to leave the most
+        greatest_need_to_leave = 0
+        most_desparate_candidate = None
+        their_target = None
+        for departure_candidate in movable_neighbors:
+            possible_targets = neighbors.copy()
+            possible_targets.remove(departure_candidate)
+            target = departure_candidate.closest_of_points(possible_targets)
+            #todo: figure out
+            #should I filter out candidates whose target is further from the joint then themselves?
+            #I think not. But this can be changed later. 
+            need = departure_candidate.co.distance_to(joint.co) - departure_candidate.co.distance_to(target.co)
+            if need > greatest_need_to_leave:
+                most_desparate_candidate = departure_candidate
+                their_target = target
+                greatest_need_to_leave = need
+        if most_desparate_candidate is None:
+            continue
+        
+        further_neighbor = most_desparate_candidate
+        closer_neighbor = their_target
+        further_chain:Chain = joint.get_common_chain(further_neighbor)
+        further_chain.switch_endpoint_to(endpoint=joint, target= closer_neighbor)
 
+        
+def dissolve_2_chain_joints(joints:list[Point]):
+    for joint in joints:
+        if joint.chains_number != 2:
+            continue
+        joint.dissolve_endpoint()
 
 def simulation_step(blobs:list[Blob], resolution:float, minimal_width:float):
     chains = state.get_chains_list(blobs)
@@ -141,8 +173,9 @@ def simulation_step(blobs:list[Blob], resolution:float, minimal_width:float):
     enforce_link_length(chains=movable_chains, link_length=resolution)
     smooth_out_shapes(blobs=blobs)
     apply_offsets(movable_chains)
-    movable_joints = state.get_movable_joints(movable_chains)
+    movable_joints = state.get_wandering_joints(movable_chains)
     slide_joints(movable_joints)
+    dissolve_2_chain_joints(movable_joints)
 
     
     

@@ -25,8 +25,8 @@ def test_apply_blob_area_equalization_force():
         if spawn_location > blob_point_num:
             spawn_location = None
         small_blob, all_chains = big_blob.spawn_small_blob(spawn_location)
-        assert big_blob.is_valid(raise_errors=True)
-        assert small_blob.is_valid(raise_errors=True)
+        assert big_blob.assert_is_valid(raise_errors=True)
+        assert small_blob.assert_is_valid(raise_errors=True)
         all_chains = set(big_blob.chain_loop + small_blob.chain_loop)
         assert len(all_chains) > 0
         big_blob.recalculate_area()
@@ -63,12 +63,12 @@ def test_remove_and_insert_midpoint():
     chain3 = Chain.from_end_points(p3, p4, point_num=5)
     chain4 = Chain.from_end_points(p4, p1, point_num=5)
     blob = Blob.from_chain_loop([chain1, chain2, chain3, chain4])
-    assert blob.is_valid(raise_errors=True)
+    assert blob.assert_is_valid(raise_errors=True)
     for point_index in range(0,blob.point_number):
         # Remove a point
         point_to_remove = blob.get_point(point_index)
         blob.remove_point(point_index)
-        assert blob.is_valid(raise_errors=True)
+        assert blob.assert_is_valid(raise_errors=True)
         # Test that the point is removed
         assert point_to_remove not in [point for chain in blob.chain_loop for point in chain.points]
         
@@ -88,7 +88,7 @@ def test_remove_and_insert_midpoint():
 
 
         # Ensure the blob is still valid
-        assert blob.is_valid(raise_errors=True)
+        assert blob.assert_is_valid(raise_errors=True)
 
         #insert another point after the inserted midpoint
         _, next_index = blob.neighboring_indexes(point_index)
@@ -103,7 +103,7 @@ def test_remove_and_insert_midpoint():
         #remove it 
         blob.remove_point(crowded_index)
         #check that everything is still valid after all our manipulations
-        blob.is_valid()
+        blob.assert_is_valid()
         assert_references(blobs=[blob])
 
 
@@ -126,7 +126,7 @@ def test_modify_blob_circumference():
         expected_points_num = max(3, point_number_before + modification)
         assert blob.point_number == expected_points_num
         for b in blobs:
-            assert blob.is_valid(raise_errors=True)
+            assert blob.assert_is_valid(raise_errors=True)
 
         # Check references between blobs, chains, and points.
         assert_references(blobs=blobs)
@@ -248,6 +248,12 @@ def test_enforce_minimal_width():
 
 def test_joint_sliding():
     # Construct the tube
+    # 1 --------------- 2
+    # |\                |
+    # | |               |
+    # |/                |
+    # 4 --------------- 3
+
     width = 100
     height = 20
     p1 = Point(0, 0)
@@ -264,16 +270,25 @@ def test_joint_sliding():
 
     # Create the membrane chain
     membrane_chain = Chain.from_end_points(p1, p4, point_num=5)
+    membrane_chain.name = "Membrane"
     membrane_chain.points[1].co.x += 5
     membrane_chain.points[2].co.x += 5
 
+    chains = [chain1, chain2, chain3, left_chain, membrane_chain]
     
 
     # Create blobs
     small_blob = Blob.from_chain_loop([left_chain, membrane_chain])
+    small_blob.name = "Small growing"
     big_blob = Blob.from_chain_loop([chain1, chain2, chain3, membrane_chain])
+    big_blob.name = "Big shrinking"
     link_length = 10
     small_blob.link_length, big_blob.link_length = link_length,link_length
+    for chain in chains:
+        expected_number_of_blobs = 2 if chain is membrane_chain else 1
+        assert len(chain.blobs) == expected_number_of_blobs
+        expected_unmoving_status = True if expected_number_of_blobs ==1 else False
+        assert chain.is_unmoving == expected_unmoving_status
     
 
     #remember state before simulation for comparison during testing

@@ -66,7 +66,6 @@ def test_comparisons():
     assert p1 == p1
 
 
-
 def test_mutually_repel_no_correction_needed():
     p1 = Point(0, 0)
     p2 = Point(5, 0)
@@ -126,8 +125,12 @@ def test_is_endpoint_on_all_chains():
 
     # Create chains
     chain1 = Chain.from_point_list([p1, p2, p3])
+    chain1.assert_is_valid()
     chain2 = Chain.from_point_list([p1, p4])
+    chain2.assert_is_valid()
     chain3 = Chain.from_point_list([p1, p3, p4])
+    chain3.assert_is_valid()
+
 
 
     assert p1.is_endpoint_on_all_chains is True
@@ -152,9 +155,9 @@ def test_get_adjacent_points_multiple_chains():
 
 
     # Test adjacent points
-    assert set(p1.get_adjacent_points()) == {p2, p4, p5}
-    assert p2.get_adjacent_points() == [p1, p3]
-    assert p3.get_adjacent_points() == [p2]
+    assert set(p1.get_connected_points_via_chains()) == {p2, p4, p5}
+    assert p2.get_connected_points_via_chains() == [p1, p3]
+    assert p3.get_connected_points_via_chains() == [p2]
 
 def test_is_endpoint_of_chain():
     # Create points
@@ -223,3 +226,138 @@ def test_closest_of_points_with_negative_coordinates():
 
     points = [p2, p3]
     assert p1.closest_of_points(points) == p2
+
+def test_closest_of_points_with_self_among_points():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+
+    # Case 1: By default, self should be ignored
+    points = [p1, p2, p3]
+    assert p1.closest_of_points(points) == p2  # Closest point is p2, not p1 itself
+
+    # Case 2: If dont_ignore_self is True, self should be returned if present
+    closest = p1.closest_of_points(points, dont_ignore_self=True)
+    assert closest == p1  # Since self is passed and dont_ignore_self=True, p1 should be returned
+
+    # Case 3: If self is not in the list, behavior is unaffected
+    points_without_self = [p2, p3]
+    assert p1.closest_of_points(points_without_self) == p2  # Closest point is p2
+    assert p1.closest_of_points(points_without_self, dont_ignore_self=True) == p2  # Same result
+
+def test_get_common_chain():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(3, 3)
+
+    chain1 = Chain.from_end_points(p1, p2, point_num=10)
+    chain2 = Chain.from_point_list([p3, p4])
+
+    with pytest.raises(ValueError):
+        p1.get_common_chain(p3)  # No common chain
+    
+    with pytest.raises(ValueError):
+        p1.get_common_chain(p1) #same point
+
+    # normal case
+    assert p1.get_common_chain(p2) == chain1
+
+    shorter_chain = Chain.from_end_points(p1, p2, point_num=5)
+    assert p1.get_common_chain(p2) == shorter_chain
+
+
+def test_adjacent_points_initially_empty():
+    # Create a point
+    p1 = Point(0, 0)
+
+    # Check that adjacent points set is initially empty
+    assert p1.connected_points == set()
+
+
+def test_connect_point_adds_to_adjacent_points():
+    # Create points
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+
+    # Connect points
+    p1.connect_point(p2)
+
+    # Check adjacency
+    assert p2 in p1.connected_points
+    assert p1 in p2.connected_points  # Bidirectional
+    p1.assert_point_is_valid(check_local_chains_structure_too=False)
+
+
+def test_disconnect_removes_from_adjacent_points():
+    # Create points
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+
+    # Connect and then disconnect points
+    p1.connect_point(p2)
+    p1.disconnect_point(p2)
+
+    # Check adjacency
+    assert p2 not in p1.connected_points
+    assert p1 not in p2.connected_points  # Bidirectional
+    p1.assert_point_is_valid(check_local_chains_structure_too=False)
+
+
+
+def test_are_connected_returns_correctly():
+    # Create points
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+
+    # Connect points
+    p1.connect_point(p2)
+
+    # Check connectivity
+    assert p1.is_connected_to_point(p2) is True
+    assert p2.is_connected_to_point(p1) is True  # Bidirectional
+    assert p1.is_connected_to_point(p3) is False
+    assert p3.is_connected_to_point(p1) is False
+
+
+def test_connecting_same_point_twice_does_not_duplicate():
+    # Create points
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+
+    # Connect the same points multiple times
+    p1.connect_point(p2)
+    p1.connect_point(p2)
+
+    # Check adjacency
+    assert len(p1.connected_points) == 1
+    assert len(p2.connected_points) == 1
+    assert p2 in p1.connected_points
+    assert p1 in p2.connected_points
+
+
+def test_disconnect_point_not_connected_does_nothing():
+    # Create points
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+
+    # Attempt to disconnect points that were not connected
+    p1.disconnect_point(p2)
+
+    # Check adjacency
+    assert p2 not in p1.connected_points
+    assert p1 not in p2.connected_points
+
+
+def test_self_connection_not_allowed():
+    # Create a point
+    p1 = Point(0, 0)
+
+    # Attempt to connect the point to itself
+    with pytest.raises(ValueError):
+        p1.connect_point(p1)
+
+    # Check adjacency
+    assert p1 not in p1.connected_points
+
