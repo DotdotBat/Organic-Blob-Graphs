@@ -50,4 +50,3 @@ def get_wandering_joints(chains:list[Chain])->list[Point]:
         points.add(chain.point_end)
     return list(points)
 
-

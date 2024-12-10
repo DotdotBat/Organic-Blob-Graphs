@@ -115,69 +115,7 @@ def test_mutually_repel_ignore_unmoving():
     assert p1.offset == Vector2(-1.5, 0)
     assert p2.offset == Vector2(1.5, 0)
 
-from chain import Chain
-def test_is_endpoint_on_all_chains():
-    # Create points
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-    p3 = Point(2, 2)
-    p4 = Point(3, 3)
 
-    # Create chains
-    chain1 = Chain.from_point_list([p1, p2, p3])
-    chain1.assert_is_valid()
-    chain2 = Chain.from_point_list([p1, p4])
-    chain2.assert_is_valid()
-    chain3 = Chain.from_point_list([p1, p3, p4])
-    chain3.assert_is_valid()
-
-
-
-    assert p1.is_endpoint_on_all_chains is True
-    assert p2.is_endpoint_on_all_chains is False
-    assert p3.is_endpoint_on_all_chains is False
-    assert p1.is_endpoint_on_ONLY_SOME_chains is False
-    assert p2.is_endpoint_on_ONLY_SOME_chains is False
-    assert p3.is_endpoint_on_ONLY_SOME_chains is True
-
-def test_get_adjacent_points_multiple_chains():
-    # Create points
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-    p3 = Point(2, 2)
-    p4 = Point(3, 3)
-    p5 = Point(4, 4)
-
-    # Create chains
-    chain1 = Chain.from_point_list([p1, p2, p3])
-    chain2 = Chain.from_point_list([p1, p4])
-    chain3 = Chain.from_point_list([p1, p5])
-
-
-    # Test adjacent points
-    assert set(p1.get_connected_points_via_chains()) == {p2, p4, p5}
-    assert p2.get_connected_points_via_chains() == [p1, p3]
-    assert p3.get_connected_points_via_chains() == [p2]
-
-def test_is_endpoint_of_chain():
-    # Create points
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-    p3 = Point(2, 2)
-    p4 = Point(3, 3)
-
-    # Create chains
-    chain1 = Chain.from_point_list([p1, p2, p3])
-    chain2 = Chain.from_point_list([p3, p4])
-
-    # Test if points are endpoints of the chain
-    assert p1.is_endpoint_of_chain(chain1) is True
-    assert p3.is_endpoint_of_chain(chain1) is True
-    assert p2.is_endpoint_of_chain(chain1) is False
-
-    assert p3.is_endpoint_of_chain(chain2) is True
-    assert p4.is_endpoint_of_chain(chain2) is True
-    assert p1.is_endpoint_of_chain(chain2) is False
 
 def test_closest_of_points_basic_case():
     p1 = Point(0, 0)
@@ -245,26 +183,6 @@ def test_closest_of_points_with_self_among_points():
     assert p1.closest_of_points(points_without_self) == p2  # Closest point is p2
     assert p1.closest_of_points(points_without_self, dont_ignore_self=True) == p2  # Same result
 
-def test_get_common_chain():
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-    p3 = Point(2, 2)
-    p4 = Point(3, 3)
-
-    chain1 = Chain.from_end_points(p1, p2, point_num=10)
-    chain2 = Chain.from_point_list([p3, p4])
-
-    with pytest.raises(ValueError):
-        p1.get_common_chain(p3)  # No common chain
-    
-    with pytest.raises(ValueError):
-        p1.get_common_chain(p1) #same point
-
-    # normal case
-    assert p1.get_common_chain(p2) == chain1
-
-    shorter_chain = Chain.from_end_points(p1, p2, point_num=5)
-    assert p1.get_common_chain(p2) == shorter_chain
 
 
 def test_adjacent_points_initially_empty():

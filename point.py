@@ -3,7 +3,6 @@ class Point:
     def __init__(self, x, y) -> None:
         self.co = Vector2(x, y)
         self.offset = Vector2(0,0)
-        self.chains = set()
         self.connected_points = set()
 
     def add_offset(self, x:float, y:float, multiplier=1):
@@ -34,10 +33,8 @@ class Point:
     def is_unmoving(self):
         if self.is_unmoving_override is not None:
             return self.is_unmoving_override
-        return any(chain.is_unmoving for chain in self.chains)
+        return False
     
-    chains= set()
-
     def mutually_repel(self, other:"Point", target_distance:float, ignore_unmoving = False):
         """try to move both points away from each other so that they will be a given distance apart"""
         
@@ -82,48 +79,14 @@ class Point:
             #unmoving point doesn't get an offset
     
     is_unmoving_override:bool = None
+    
+    
 
-    @property
-    def chains_number(self):
-        return len(self.chains)
-    
-    def endpoint_should_be_dissolved(self, ignore_umoving_status):
-        "if it connects two different chains, and it is the endpoint of both, than the two chains act as one"
-        if self.chains_number!=2:
-            return False
-        if not self.is_endpoint_on_all_chains:
-            return False
-        return True
-        
-    @property
-    def is_endpoint_on_all_chains(self)->bool:
-        #we do not consider scenarios where chains is empty, in a valid state, it will not be. 
-        return all([self.is_endpoint_of_chain(chain) for chain in self.chains])
-
-    
-    @property
-    def is_endpoint_on_ONLY_SOME_chains(self)->bool:
-        if self.is_endpoint_on_all_chains:
-            return False
-        return any([self.is_endpoint_of_chain(chain) for chain in self.chains])
-    
-    is_endpoint_on_ONLY_SOME_chains
     
     def is_endpoint_of_chain(self, chain):
         return self == chain.point_start or self == chain.point_end
     
-    def get_connected_points_via_chains(self) -> list["Point"]:
-        adjacent_points = []
-        if self.is_endpoint_on_all_chains:
-            for chain in self.chains:
-                adjacent_points.append(chain.endpoint_neighbor(self))
-        else:
-            #this isn't an endpoint, so it should have two neighboring points
-            chain = list(self.chains)[0]
-            self_index = chain.points.index(self)
-            adjacent_points.append(chain.points[self_index-1])
-            adjacent_points.append(chain.points[self_index+1])
-        return adjacent_points
+
     
     def closest_of_points(self, others:list["Point"], dont_ignore_self=False):
         if not dont_ignore_self and self in others:
@@ -136,31 +99,6 @@ class Point:
             if self.co.distance_squared_to(other.co) < self.co.distance_squared_to(closest.co):
                 closest = other
         return closest
-
-    def dissolve_endpoint(self):
-        chains = list(self.chains)
-        if self.is_endpoint_on_ONLY_SOME_chains:
-            raise ValueError("invalid state")
-        if len(chains) != 2:
-            raise ValueError("Trying to dissolve a point that doesn't have exactly 2 chains", self, self.chains)
-        longer_chain = chains[0] if chains[0].point_number > chains[1].point_number else chains[1]
-        shorter_chain = chains[1] if chains[0] == longer_chain else chains[0]
-        longer_chain.merge_with(shorter_chain)
-            
-    def get_common_chain(self, other:"Point"):
-        if self == other:
-            raise ValueError(self, "was passed as the other, must be unintended")
-        chain_set = self.chains.intersection(other.chains)
-        if len(chain_set) < 1:
-            raise ValueError(self, "and", other, "don't have any chains in common") 
-        
-
-        chain_list = list(chain_set)
-        if len(chain_list) > 1:
-            #there might be more than one chain
-            #in this case, we will return the shortest one
-            chain_list = sorted(chain_list, key=lambda c: c.point_number)
-        return chain_list[0]
     
     def connect_point(self, other:"Point"):
         if other == self:
@@ -180,22 +118,69 @@ class Point:
             return True
         return False
     
-    def assert_point_is_valid(self, check_local_chains_structure_too = True):        
+    def assert_point_is_valid(self):        
         #are references to other points mutual? 
         for other in self.connected_points:
             other:"Point"
             assert self in other.connected_points , f"Non mutual connection between {self} and {other}"
         
+       
+    def _get_next_point_in_chained_connection(self, previous:"Point", current:"Point"):
+            assert len(current.connected_points) == 2
+            two_neigbors = current.connected_points.copy()
+            two_neigbors.remove(previous)
+            next_point = list(two_neigbors)[0]
+            return next_point
+    
+    def _trace_a_chained_point_list_recursively(self, from_point:"Point", direction:"Point", visited_intersections:list["Point"]):
+            if from_point not in visited_intersections:
+                visited_intersections.append(from_point)
+            points = [from_point, direction]
+            previous_point, current_point= from_point, direction
 
-        #does the local chain structure correspond to the point connections?
-        if not check_local_chains_structure_too:
-            return #stop here as chains are not correspoinding to point connection
-        
-        if len(self.connected_points)>0:
-            assert len(self.chains)>0, "if Point has connected points, it means that it should be on a chain"
+            while len(current_point.connected_points) == 2:
+                next_point = self._get_next_point_in_chained_connection(previous_point, current_point)
+                points.append(next_point)
+                previous_point, current_point = current_point, next_point
+            last_point = current_point
 
-        assert self.connected_points == set(self.get_connected_points_via_chains()), "Connected points do not map correctly to local chain structure"
+            points_list_list = [points]
+            if last_point in visited_intersections:
+                return points_list_list
 
+            directions_to_explore = last_point.connected_points.copy()
+            directions_to_explore.remove(previous_point)
+            for direction in directions_to_explore:
+                points_list = self._trace_a_chained_point_list_recursively(
+                    from_point=last_point, direction=direction, visited_intersections= visited_intersections
+                )
+            return points_list_list
+    def _is_intersection_or_dead_end(self):
+            return len(self.connected_points) != 2
+    
+    def _traverse_to_an_intersection_or_dead_end(self):
+            if self._is_intersection_or_dead_end():
+                return self
+            previous = self
+            current = list(self.connected_points)[0]
+            current:Point
+            while not current._is_intersection_or_dead_end():
+                directions = list(current.connected_points)
+                directions.remove(previous) #only forwards!
+                next_point = directions[0]
+                previous = current
+                current = next_point
+            return current
+    
+    def get_chained_points_lists_from_connected_points(self)->list[list["Point"]]:
+        visited_intersections = []
+        chained_point_lists = []
+        root_point = self._traverse_to_an_intersection_or_dead_end()
+        root_point:Point
+        for neighbor in root_point.connected_points:
+            chained_point_lists.extend(self._trace_a_chained_point_list_recursively(from_point=root_point,direction = neighbor, visited_intersections = visited_intersections))
+        return chained_point_lists
 
+    
 
 

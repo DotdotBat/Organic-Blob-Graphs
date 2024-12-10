@@ -47,8 +47,6 @@ class Chain:
     def from_point_list(cls, points:Sequence["Point"], color = None) -> "Chain":
         chain = cls(color)
         chain.points = points[:] #list soft copy 
-        for point in points:
-            point.chains.add(chain)
         #todo: connect point to it's neighbors
         for i, point in enumerate(chain.points):
             last_index = len(chain.points) - 1
@@ -400,10 +398,11 @@ class Chain:
             assert self.blob_right != self.blob_left
             
     def unregister(self):
+        """removes the mutual references with both points and blobs"""
         for point in self.points:
             point.chains.remove(self)
         # del self.points #might not be legal, if so just = []
-        self.points = []
+        self.points.clear()
         self.unregister_from_blobs()
         # del self
     
@@ -422,21 +421,32 @@ class Chain:
     def assert_is_valid(self):
         assert self.point_number >= 2
         for i, point in enumerate(self.points):
-            assert self in point.chains, "Non mutual chain-point reference"
             point.assert_point_is_valid()
-            previous_point = self.points[i-1] if i>0 else None
-            if previous_point is None:
-                continue
-            assert point.is_connected_to_point(previous_point)
+            if i>0:
+                previous_point = self.points[i-1]
+                assert point.is_connected_to_point(previous_point)
         
         for point in self.points:
+            if point in [self.point_start, self.point_end]:
+                assert len(point.connected_points) != 2, "chain endpoints "
             if point not in [self.point_start, self.point_end]:
-                assert len(point.chains) == 1
-                assert len(point.connected_points) == 2
-
+                assert len(point.connected_points) == 2, "inner chain points should not be intersections"
+            
         for blob in self.blobs:
             assert self in blob.chain_loop, "Non mutual blob-chain reference"
         
         if len(self.blobs) == 2:
             assert self.blob_left != self.blob_right
         
+    @classmethod
+    def construct_chains_from_point_connections(cls, point:Point):
+        chained_points_lists = point.get_chained_points_lists_from_connected_points()
+        points = {point for chain in chained_points_lists for point in chain}
+        old_chains = {chain for p in points for chain in p.chains}
+        old_chains:list[Chain]
+        for chain in old_chains:
+            chain.unregister()
+        for point in points:
+            point.chains.clear()
+        new_chains = [cls.from_point_list(points) for points in chained_points_lists]
+        return new_chains
