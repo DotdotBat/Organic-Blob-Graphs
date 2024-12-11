@@ -138,7 +138,6 @@ class Chain:
                 b.add_offset(-diff.x, -diff.y)
     
     def append_endpoint(self, point:Point, append_to_start:bool):
-        point.chains.add(self)
         if append_to_start:
             neighbor = self.point_start
             self.points.insert(0, point)
@@ -199,13 +198,8 @@ class Chain:
         is_flipped = []
         for blob in self.blobs:
             is_flipped.append(blob.is_chain_backwards(self))
-        
-        for point in self.points:
-            point.chains.discard(self)
 
         start_points =  self.points[:point_index+1]
-        for point in start_points:
-            point.chains.add(self)
         end_points =    self.points[point_index:]
 
         self.points = start_points
@@ -297,7 +291,6 @@ class Chain:
         next_point = self.points[next_index]
         mid_co = (point.co + next_point.co)/2
         midpoint = Point(mid_co.x, mid_co.y)
-        midpoint.chains.add(self)
         mid_offset = (point.offset + next_point.offset)/2
         midpoint.offset = mid_offset
         point.disconnect_point(next_point)
@@ -324,7 +317,6 @@ class Chain:
         if point_index<last_index:
             next_point = self.points[point_index+1]
             point.disconnect_point(next_point)
-        point.chains.remove(self)
         self.points.remove(point) 
         return point
     
@@ -392,15 +384,11 @@ class Chain:
 
         other.unregister()
         self.points = new_point_list
-        for point in new_point_list:
-            point.chains.update([self])
         if br or bl:
             assert self.blob_right != self.blob_left
             
     def unregister(self):
         """removes the mutual references with both points and blobs"""
-        for point in self.points:
-            point.chains.remove(self)
         # del self.points #might not be legal, if so just = []
         self.points.clear()
         self.unregister_from_blobs()
@@ -427,8 +415,6 @@ class Chain:
                 assert point.is_connected_to_point(previous_point)
         
         for point in self.points:
-            if point in [self.point_start, self.point_end]:
-                assert len(point.connected_points) != 2, "chain endpoints "
             if point not in [self.point_start, self.point_end]:
                 assert len(point.connected_points) == 2, "inner chain points should not be intersections"
             
@@ -441,12 +427,6 @@ class Chain:
     @classmethod
     def construct_chains_from_point_connections(cls, point:Point):
         chained_points_lists = point.get_chained_points_lists_from_connected_points()
-        points = {point for chain in chained_points_lists for point in chain}
-        old_chains = {chain for p in points for chain in p.chains}
-        old_chains:list[Chain]
-        for chain in old_chains:
-            chain.unregister()
-        for point in points:
-            point.chains.clear()
+        all_connected_points = {point for chain in chained_points_lists for point in chain}
         new_chains = [cls.from_point_list(points) for points in chained_points_lists]
         return new_chains

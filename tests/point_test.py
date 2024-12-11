@@ -204,7 +204,7 @@ def test_connect_point_adds_to_adjacent_points():
     # Check adjacency
     assert p2 in p1.connected_points
     assert p1 in p2.connected_points  # Bidirectional
-    p1.assert_point_is_valid(check_local_chains_structure_too=False)
+    p1.assert_point_is_valid()
 
 
 def test_disconnect_removes_from_adjacent_points():
@@ -219,7 +219,7 @@ def test_disconnect_removes_from_adjacent_points():
     # Check adjacency
     assert p2 not in p1.connected_points
     assert p1 not in p2.connected_points  # Bidirectional
-    p1.assert_point_is_valid(check_local_chains_structure_too=False)
+    p1.assert_point_is_valid()
 
 
 

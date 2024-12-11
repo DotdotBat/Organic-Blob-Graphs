@@ -134,12 +134,25 @@ def test_add_point_to_connect_two_chains():
     assert order_is_preserved
     c.assert_is_valid()
 
-    p5 = Point(0, 5)
-    p3.connect_point(p5)
-    chains = Chain.construct_chains_from_point_connections(p4)
+def test_connect_to_midpoint_splits_chain():
+    p1 = Point(-1, 0)
+    mid_point = Point(0, 0)
+    p3 = Point(1, 0)
+    p5 = Point(0, 0.5)
+    p4 = Point(0, 1)
+    original_chain = Chain.from_point_list([p1, mid_point, p3])
+    
+    p5.connect_point(p4)
+    mid_point.connect_point(p5)
+    chains_from_midpoint = Chain.construct_chains_from_point_connections(mid_point)
+    chains = Chain.construct_chains_from_point_connections(p1)
+    assert len(chains_from_midpoint) == 3
     assert len(chains) == 3
     for chain in chains:
-        assert p3 in chain.points
+        assert mid_point in chain.points
     for chain in chains:
         chain.assert_is_valid()
+    a, b, c = chains
+    assert a != b
+    assert a.points != b.points
     

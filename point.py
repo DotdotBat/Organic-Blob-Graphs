@@ -151,8 +151,11 @@ class Point:
             directions_to_explore = last_point.connected_points.copy()
             directions_to_explore.remove(previous_point)
             for direction in directions_to_explore:
-                points_list = self._trace_a_chained_point_list_recursively(
-                    from_point=last_point, direction=direction, visited_intersections= visited_intersections
+                points_list_list.extend(
+                    self._trace_a_chained_point_list_recursively(
+                    from_point=last_point, direction=direction,
+                    visited_intersections = visited_intersections
+                    )
                 )
             return points_list_list
     def _is_intersection_or_dead_end(self):
