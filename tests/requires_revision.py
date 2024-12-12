@@ -1,104 +1,4 @@
-
-
-
-def test_common_endpoint():
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-    c1 = Chain.from_point_list([p1, p2])
-    c2 = Chain.from_point_list([p2, Point(2, 2)])
-    assert c1.common_endpoint(c2) == p2
-
-def are_collinear(v1:Vector2, v2:Vector2):
-    scalar = v1.cross(v2)
-    return scalar == pytest.approx(0)
-
-def test_are_collinear():
-    v1 = Vector2(1, 2)
-    v2 = Vector2(2, 4)
-    v3 = Vector2(2, 0)
-    v4 = Vector2(0, 3)
-    
-    assert are_collinear(v1, v2) is True
-    assert are_collinear(v1, v3) is False
-    assert are_collinear(v3, v4) is False
-
-
-def test_right_direction():
-    p1 = Point(2,4)
-    p2 = Point(1,3)
-    p3 = Point(1,2)
-    p4 = Point(0,2)
-    p5 = Point(0,1)
-    p6 = Point(0,0)
-    chain = Chain.from_point_list([p1, p2, p3, p4, p5, p6])
-    #I have doodled in my notebook. And here are the expected right side normals:
-    expected_normals = [
-        Vector2(1,-1),
-        Vector2(2,-1),
-        Vector2(1,-1),
-        Vector2(1,-1),
-        Vector2(1, 0),
-        Vector2(1, 0)
-    ]
-    for i, point in enumerate(chain.points):
-        n = chain.right_normal_at(i)
-        assert isinstance(n, Vector2)
-        expected_n = expected_normals[i]
-        assert are_collinear(n, expected_n)
-
-def test_add_right_offset():
-    p1 = Point(2, 4)
-    p2 = Point(1, 3)
-    p3 = Point(1, 2)
-    p4 = Point(0, 2)
-    p5 = Point(0, 1)
-    p6 = Point(0, 0)
-    chain = Chain.from_point_list([p1, p2, p3, p4, p5, p6])
-    
-    # Defined expected normals (not normalized)
-    expected_normals = [
-        Vector2(1,-1),
-        Vector2(2,-1),
-        Vector2(1,-1),
-        Vector2(1,-1),
-        Vector2(1, 0),
-        Vector2(1, 0)
-    ]
-    
-    # Normalize expected normals
-    expected_normals = [n.normalize() for n in expected_normals]
-    
-    # Apply positive offset
-    offset_magnitude = 1.0
-    original_positions = [p.co.copy() for p in chain.points]
-    
-    chain.add_right_offset(offset_magnitude, ignore_umoving_status=True)
-    chain.apply_accumulated_offsets(ignore_unmoving_status=True)
-    chain.assert_is_valid()
-    
-    # Check new positions for positive offset
-    for i, point in enumerate(chain.points):
-        expected_position = original_positions[i] + expected_normals[i] * offset_magnitude
-        assert point.co.x == pytest.approx(expected_position.x)
-        assert point.co.y == pytest.approx(expected_position.y)
-    
-    chain.add_right_offset(3.4,ignore_umoving_status=True)
-    chain.add_right_offset(-3.4,ignore_umoving_status=True)
-    for point in chain.points:
-        assert point.offset.x == pytest.approx(0)
-        assert point.offset.y == pytest.approx(0)
-    
-
 from blob_test import create_valid_blob
-def test_get_on_blob_point_index():
-    blob = create_valid_blob()
-    for chain in blob.chain_loop:
-        for i in range(chain.point_number):
-            blob_point_index = chain.get_on_blob_point_index(blob, i)
-            chain_point = chain.points[i]
-            blob_point = blob.get_point(blob_point_index)
-            assert chain_point == blob_point
-
 
 def test_insert_midpoint():
     # Create a chain with three points
@@ -1799,4 +1699,14 @@ def test_reconstruct_a_blob():
 
 def test_reconstruct_multiple_blobs():
     raise NotImplementedError()
+
+def test_get_on_blob_point_index():
+    blob = create_valid_blob()
+    for chain in blob.chain_loop:
+        for i in range(chain.point_number):
+            blob_point_index = chain.get_on_blob_point_index(blob, i)
+            chain_point = chain.points[i]
+            blob_point = blob.get_point(blob_point_index)
+            assert chain_point == blob_point
+
 

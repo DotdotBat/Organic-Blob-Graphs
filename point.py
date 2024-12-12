@@ -1,4 +1,11 @@
 from pygame.math import Vector2
+
+def connect_point_list(points:list["Point"]):
+    for i, point in enumerate(points):
+        if i>0:
+            previous_point = points[i-1]
+            point.connect_point(previous_point)
+
 class Point:
     def __init__(self, x, y) -> None:
         self.co = Vector2(x, y)
@@ -142,6 +149,8 @@ class Point:
                 next_point = self._get_next_point_in_chained_connection(previous_point, current_point)
                 points.append(next_point)
                 previous_point, current_point = current_point, next_point
+                if current_point in visited_intersections:
+                    break
             last_point = current_point
 
             points_list_list = [points]
@@ -167,12 +176,14 @@ class Point:
             previous = self
             current = list(self.connected_points)[0]
             current:Point
-            while not current._is_intersection_or_dead_end():
+            while (not current._is_intersection_or_dead_end()):
                 directions = list(current.connected_points)
                 directions.remove(previous) #only forwards!
                 next_point = directions[0]
                 previous = current
                 current = next_point
+                if current == self:
+                    break
             return current
     
     def get_chained_points_lists_from_connected_points(self)->list[list["Point"]]:
@@ -180,10 +191,16 @@ class Point:
         chained_point_lists = []
         root_point = self._traverse_to_an_intersection_or_dead_end()
         root_point:Point
-        for neighbor in root_point.connected_points:
+        directions_to_explore = root_point.connected_points.copy()
+        if len(directions_to_explore) == 2:
+            # this means that this is a ring.
+            # If we explore both directions
+            # we'll endup with the same chain twice
+            directions_to_explore.pop()
+        for neighbor in directions_to_explore:
             chained_point_lists.extend(self._trace_a_chained_point_list_recursively(from_point=root_point,direction = neighbor, visited_intersections = visited_intersections))
         return chained_point_lists
-
+ 
     
 
 
