@@ -138,6 +138,9 @@ class Chain:
                 b.add_offset(-diff.x, -diff.y)
     
     def append_endpoint(self, point:Point, append_to_start:bool):
+        if self.point_number == 0:
+            self.points.append(point)
+            return
         if append_to_start:
             neighbor = self.point_start
             self.points.insert(0, point)

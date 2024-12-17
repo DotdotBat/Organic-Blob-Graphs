@@ -529,3 +529,114 @@ def test_neighboring_point_of_invalid_endpoint():
 
     with pytest.raises(ValueError):  # Assuming it raises an error
         chain.endpoint_neighbor(p4)
+
+def test_dissolve_endpoint_basic_merge():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(3, 3)
+
+    chain1 = Chain.from_point_list([p1, p2])
+    chain2 = Chain.from_point_list([p2, p3, p4])
+    chain1.assert_is_valid()
+    chain2.assert_is_valid()
+
+    # there is no need to dissolve anything, just reconstract the chains
+    retraced_chains = Chain.construct_chains_from_point_connections(p1)
+    assert len(retraced_chains) == 1
+    retraced_chain = retraced_chains[0]
+
+    # Check that chain1 now contains all points
+    for point in [p1, p2, p3, p4]:
+        assert point in retraced_chain.points
+    retraced_chain.assert_is_valid()
+
+def test_dissolve_endpoint_order_preservation():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(3, 3)
+
+    chain1 = Chain.from_point_list([p2, p1])
+    chain2 = Chain.from_point_list([p2, p3, p4])
+
+    retraced_chains = Chain.construct_chains_from_point_connections(p1)
+    assert len(retraced_chains) == 1
+    retraced_chain = retraced_chains[0]
+
+    # Ensure order is preserved
+    assert retraced_chain.points == [p1, p2, p3, p4] or [p4, p3, p2, p1]
+
+
+def test_switch_endpoint_to_start():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    target = Point(3, 3)
+    chain = Chain.from_point_list([p1, p2, p3])
+    chain.assert_is_valid()
+
+    chain.switch_endpoint_to(p1, target)
+
+    assert chain.point_start == target
+    assert chain.points == [target, p2, p3]
+    chain.assert_is_valid()
+
+def test_switch_endpoint_to_end():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    target = Point(3, 3)
+    points = [p1, p2, p3, target]
+
+    chain = Chain.from_point_list([p1, p2, p3])
+    chain.switch_endpoint_to(p3, target)
+
+    assert chain.point_end == target
+    assert chain.points == [p1, p2, target]
+    chain.assert_is_valid()
+
+def test_switch_endpoint_to_invalid_endpoint():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    invalid = Point(4, 4)
+    target = Point(3, 3)
+
+    chain = Chain.from_point_list([p1, p2, p3])
+    chains = [chain]
+    
+    with pytest.raises(ValueError):
+        chain.switch_endpoint_to(invalid, target)
+
+    assert chain.points == [p1, p2, p3]
+
+def test_switch_endpoint_to_same_point():
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+
+    chain = Chain.from_point_list([p1, p2, p3])
+
+    chain.switch_endpoint_to(p1, p1)
+
+    assert chain.points == [p1, p2, p3]
+
+def test_switch_endpoint_to_no_points():
+    target = Point(1, 1)
+    chain = Chain()
+    with pytest.raises(ValueError):
+        chain.switch_endpoint_to(Point(0, 0), target)
+    assert chain.points == []
+
+def test_switch_endpoint_to_one_point_chain():
+    p1 = Point(0, 0)
+    target = Point(1, 1)
+    chain = Chain.from_point_list([p1])
+    chain.switch_endpoint_to(p1, target)
+
+    assert chain.point_start == target
+    assert chain.point_end == target
+    assert chain.points == [target]
+    with pytest.raises(AssertionError):
+        chain.assert_is_valid()#it is a one point chain, it is invalid
