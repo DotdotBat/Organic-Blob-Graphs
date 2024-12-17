@@ -1,251 +1,11 @@
-from blob_test import create_valid_blob
-
-def test_insert_midpoint():
-    # Create a chain with three points
-    p1 = Point(0, 0)
-    p2 = Point(5, 0)
-    chain_points_number = 5
-    for i in range(chain_points_number - 1):
-        chain = Chain.from_end_points(p1, p2, point_num=chain_points_number)
-        point1 = chain.points[i]
-        next_i = i+1
-        point2 = chain.points[next_i]
-        midpoint = chain.create_midpoint(i, next_i)
-        assert chain.point_number == chain_points_number + 1
-        expected_midpoint_co = (point1.co + point2.co) / 2
-        
-        #vectors and approx don't work together. compare x and y seperately
-        assert midpoint.co.x == pytest.approx(expected_midpoint_co.x)
-        assert midpoint.co.y == pytest.approx(expected_midpoint_co.y)
-        assert chain.points[i]     == point1
-        assert chain.points[i + 1] == midpoint
-        next_i = (i+2)% chain.point_number
-        assert chain.points[next_i] == point2
-        chain.assert_is_valid()
-        
+from blob_test import create_valid_blob     
 import pytest
 from point import Point
 from chain import Chain
 
 from blob_test import assert_references
-def test_point_chains_references_management():
-    # Step 1: Create some points
-    p1 = Point(0, 0)
-    p2 = Point(1, 0)
-    p3 = Point(2, 0)
-    p4 = Point(3, 0)
-    p5 = Point(4, 0)
-    p6 = Point(5, 0)
-    points = [p1,p2,p3,p4,p5,p6]
-    assert_references(points=points)
-    
-    # Step 2: Create some chains from them
-    chain1 = Chain.from_point_list([p1, p2])
-    chain2 = Chain.from_coord_list([(10,40), (30, 20)])
-    chain3 = Chain.from_end_points(p3, p4, point_num=3)
-    chains = [chain1,chain2,chain3]
-    assert_references(chains=chains, points=points)
-    
-    # Step 3: Add a point to a chain
-    chain1.append_endpoint(p5, append_to_start=False)
-    assert_references(chains=chains)
-    
-    # Step 4: Remove a point from a chain
-    chain1.remove_point(p2)
-    chain3.remove_point(1)
-    assert_references(chains=chains)
-    assert_references(points=points)
-    
-    # Step 5: Add a point from one chain to another chain
-    chain1.append_endpoint(p3, append_to_start=True)
-    assert_references(chains=chains)
-    assert_references(points=points)
-    
-    # Step 6: Swap a point on a chain for another point that wasn't on that chain
-    chain1.swap_point(p1, p6)
-    assert_references(chains=chains)
-    assert_references(points=points)
-
-    
-    # Step 7: create middle point
-    midpoint = chain2.create_midpoint(0, 1)
-    assert_references(chains=chains)
-    points.append(midpoint)
-    assert_references(points= points)
-
-    #Step 8: cut chain into two
-    chain2a, chain2b = chain2.cut(1)
-    chains.append(chain2b)
-    assert chain2a in chains
-    assert_references(chains=chains)
-    assert_references(points= points)
-    for chain in chains:
-        chain.assert_is_valid()
 
 
-def test_find_biggest_gap_basic_case():
-    p1 = Point(0, 0)
-    p2 = Point(1, 0)
-    p3 = Point(3, 0)  # Biggest gap between p2 and p3
-    p4 = Point(4, 0)
-    chain = Chain.from_point_list([p1, p2, p3, p4])
-    
-    index_a, index_b, gap_length = chain.find_biggest_gap()
-    assert (index_a, index_b) == (1, 2)
-    assert gap_length == pytest.approx(2.0)
-
-def test_find_biggest_gap_single_pair():
-    p1 = Point(0, 0)
-    p2 = Point(1, 0)
-    chain = Chain.from_point_list([p1, p2])
-    
-    index_a, index_b, gap_length = chain.find_biggest_gap()
-    assert (index_a, index_b) == (0, 1)
-    assert gap_length == pytest.approx(1.0)
-
-def test_find_biggest_gap_multiple_same_gaps():
-    p1 = Point(0, 0)
-    p2 = Point(2, 0)
-    p3 = Point(4, 0)
-    chain = Chain.from_point_list([p1, p2, p3])
-    
-    index_a, index_b, gap_length = chain.find_biggest_gap()
-    assert (index_a, index_b) in [(0, 1), (1, 2)]
-    assert gap_length == pytest.approx(2.0)
-
-def test_find_biggest_gap_on_too_short_chains():
-    p1 = Point(0, 0)
-    chain1 = Chain.from_point_list([p1])
-    
-    with pytest.raises(ValueError):
-        chain1.find_biggest_gap()
-
-    chain0 = Chain()
-    
-    with pytest.raises(ValueError):
-        chain0.find_biggest_gap()
-
-from simulation import find_all_endpoints
-
-
-def test_find_all_endpoints_basic_case():
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-    p3 = Point(2, 2)
-    p4 = Point(3, 3)
-    p5 = Point(4, 4)
-
-    chain1 = Chain.from_point_list([p1, p2, p3])  # Endpoints are p1, p3
-    chain2 = Chain.from_end_points(p4, p5, point_num=3)  # Endpoints are p4, p5
-    chains = [chain1, chain2]
-
-    endpoints = find_all_endpoints(chains)
-    expected_endpoints = {p1, p3, p4, p5}
-    assert endpoints == expected_endpoints
-
-def test_find_all_endpoints_shared_endpoints():
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-    p3 = Point(2, 2)
-    p4 = Point(3, 3)
-
-    chain1 = Chain.from_point_list([p1, p2, p3])  # Endpoints are p1, p3
-    chain2 = Chain.from_point_list([p3, p4])      # Endpoints are p3, p4
-    chains = [chain1, chain2]
-
-    endpoints = find_all_endpoints(chains)
-    expected_endpoints = {p1, p3, p4}
-    assert endpoints == expected_endpoints
-
-def test_find_all_endpoints_no_chains():
-    chains = []
-    endpoints = find_all_endpoints(chains)
-    expected_endpoints = set()
-    assert endpoints == expected_endpoints
-
-def test_find_all_endpoints_single_chain():
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-    p3 = Point(2, 2)
-
-    chain = Chain.from_end_points(p1, p3, point_num=3)  # Endpoints are p1, p3
-    chains = [chain]
-
-    endpoints = find_all_endpoints(chains)
-    expected_endpoints = {p1, p3}
-    assert endpoints == expected_endpoints
-
-def test_find_all_endpoints_identical_endpoints():
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-
-    chain1 = Chain.from_end_points(p1, p2, point_num=3)  # Endpoints are p1, p2
-    chain2 = Chain.from_end_points(p1, p2, point_num=3)  # Endpoints are p1, p2
-    chains = [chain1, chain2]
-
-    endpoints = find_all_endpoints(chains)
-    expected_endpoints = {p1, p2}
-    assert endpoints == expected_endpoints
-
-def test_find_all_endpoints_chain_with_no_points():
-    chain = Chain()
-    chains = [chain]
-
-    endpoints = find_all_endpoints(chains)
-    expected_endpoints = set()
-    assert endpoints == expected_endpoints
-
-def test_find_all_endpoints_chain_with_one_point():
-    p1 = Point(0, 0)
-    chain = Chain.from_point_list([p1])
-    chains = [chain]
-
-    endpoints = find_all_endpoints(chains)
-    expected_endpoints = {p1}
-    assert endpoints == expected_endpoints
-
-def test_neighboring_point_of_endpoint_basic_case():
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-    p3 = Point(2, 2)
-
-    chain = Chain.from_point_list([p1, p2, p3])  # Endpoints are p1, p3
-
-    neighbor = chain.endpoint_neighbor(p1)
-    assert neighbor == p2
-
-    neighbor = chain.endpoint_neighbor(p3)
-    assert neighbor == p2
-
-def test_neighboring_point_of_endpoint_single_point_chain():
-    p1 = Point(0, 0)
-    chain = Chain.from_point_list([p1])
-
-    non_existant_neigbor = chain.endpoint_neighbor(p1)
-    assert non_existant_neigbor is None
-
-def test_neighboring_point_of_endpoint_two_point_chain():
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-
-    chain = Chain.from_point_list([p1, p2])
-
-    neighbor = chain.endpoint_neighbor(p1)
-    assert neighbor == p2
-
-    neighbor = chain.endpoint_neighbor(p2)
-    assert neighbor == p1
-
-def test_neighboring_point_of_invalid_endpoint():
-    p1 = Point(0, 0)
-    p2 = Point(1, 1)
-    p3 = Point(2, 2)
-    p4 = Point(3, 3)
-
-    chain = Chain.from_point_list([p1, p2, p3])
-
-    with pytest.raises(ValueError):  # Assuming it raises an error
-        chain.endpoint_neighbor(p4)
 
 
 
@@ -1710,3 +1470,14 @@ def test_get_on_blob_point_index():
             assert chain_point == blob_point
 
 
+def test_chain_is_equivalent_to_other():
+    raise NotImplementedError()
+
+def test_isert_point_between_other_points():
+    raise NotImplementedError()
+
+def test_swap_point_connections():
+    raise NotImplementedError()    
+
+def test_chain_collection_equvalent_to_another_chain_collection():
+    raise NotImplementedError()

@@ -293,9 +293,7 @@ class Chain:
         midpoint = Point(mid_co.x, mid_co.y)
         mid_offset = (point.offset + next_point.offset)/2
         midpoint.offset = mid_offset
-        point.disconnect_point(next_point)
-        midpoint.connect_point(point)
-        midpoint.connect_point(next_point)
+        midpoint.insert_between(point, next_point)
         self.points.insert(point_index+1, midpoint)
         return midpoint
     
@@ -322,8 +320,7 @@ class Chain:
     
     def swap_point(self, point_to_remove:Point, point_to_insert:Point):
         point_index = self.points.index(point_to_remove)
-        point_to_remove.chains.remove(self)
-        point_to_insert.chains.add(self)
+        point_to_insert.swap_connections_with(point_to_remove)
         self.points[point_index] = point_to_insert
     
     def unregister_from_blobs(self):
@@ -430,3 +427,22 @@ class Chain:
         all_connected_points = {point for chain in chained_points_lists for point in chain}
         new_chains = [cls.from_point_list(points) for points in chained_points_lists]
         return new_chains
+
+    def is_equivalent_to(self, other:"Chain"):
+        if self.points == other.points:
+            return True
+        
+        reversed_points = other.points.copy()
+        reversed_points.reverse()
+        if self.points == reversed_points:
+            return True
+        return False
+    
+    @staticmethod
+    def find_all_endpoints(chains:list["Chain"]):
+        endpoints = set()
+        for chain in chains:
+            if chain.point_number>0:
+                endpoints.add(chain.point_start)
+                endpoints.add(chain.point_end)
+        return endpoints

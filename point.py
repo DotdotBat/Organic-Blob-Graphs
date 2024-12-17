@@ -201,6 +201,28 @@ class Point:
             chained_point_lists.extend(self._trace_a_chained_point_list_recursively(from_point=root_point,direction = neighbor, visited_intersections = visited_intersections))
         return chained_point_lists
  
+    def dismantle_structure(self):
+        neigbors = self.connected_points.copy()
+        self.connected_points.clear()
+        for p in neigbors:
+            p.dismantle_structure()
     
+    def insert_between(self, pointA:"Point", pointB:"Point"):
+        pointA.disconnect_point(pointB)
+        self.connect_point(pointA)
+        self.connect_point(pointB)
 
 
+    def swap_connections_with(self, other:"Point"):
+        others_points = other.connected_points.copy()
+        selfs_points = self.connected_points.copy()
+
+        for point in others_points:
+            other.disconnect_point(point)
+        for point in selfs_points:
+            self.disconnect_point(point)
+        for point in selfs_points:
+            other.connect_point(point)
+        for point in others_points:
+            self.connect_point(point)
+        

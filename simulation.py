@@ -100,14 +100,6 @@ def create_frame_blob(width:float, height:float, link_length:float, margin=5)->B
     blob.link_length = link_length
     return blob
 
-def find_all_endpoints(chains:list[Chain]):
-    endpoints = set()
-    for chain in chains:
-        if chain.point_number>0:
-            endpoints.add(chain.point_start)
-            endpoints.add(chain.point_end)
-    return endpoints
-
 def enforce_minimal_width(blobs:list[Blob], minimal_width):
     for blob in blobs:
         blob.enforce_minimal_width(minimal_width)
