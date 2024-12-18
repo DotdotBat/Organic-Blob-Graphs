@@ -4,7 +4,41 @@ from chain import Chain
 from blob_test import assert_references
 from blob import Blob
 from blob_test import create_valid_blob     
+##################################
+# retrace_test.py
 
+
+
+def test_multiple_chains_test():
+    raise NotImplementedError()
+
+def test_reconstruct_a_blob():
+    raise NotImplementedError()
+
+def test_reconstruct_multiple_blobs():
+    raise NotImplementedError()
+
+def test_get_on_blob_point_index():
+    blob = create_valid_blob()
+    for chain in blob.chain_loop:
+        for i in range(chain.point_number):
+            blob_point_index = chain.get_on_blob_point_index(blob, i)
+            chain_point = chain.points[i]
+            blob_point = blob.get_point(blob_point_index)
+            assert chain_point == blob_point
+
+
+def test_chain_is_equivalent_to_other():    
+    raise NotImplementedError()
+
+def test_isert_point_between_other_points():
+    raise NotImplementedError()
+
+def test_swap_point_connections():
+    raise NotImplementedError()    
+
+def test_chain_collection_equivalent_to_another_chain_collection():
+    raise NotImplementedError()
 
 ##################################
 
@@ -1165,149 +1199,3 @@ def test_utility_functions():
 
 #####################################
 
-# retrace_test.py
-
-#the retrace system 
-#instead of tediously keeping track of
-# point_lists in chains, 
-# chains lists in points
-# blob lists in chains
-# and chain lists in blobs
-#I decided to represent the data as points and their connctions
-#and all above structures will be created at runtime from them. 
-#from connected points we get chains
-#from connected chains we get blobs 
-#to change something, just reconnect the points
-#and the chains and blobs should be rebulid from the new structure
-from point import Point
-from chain import Chain
-
-def test_get_chained_points_lists_from_connected_points():
-    p1 = Point(0,0)
-    p2 = Point(1,1)
-    p3 = Point(2,2)
-    p4 = Point(3,3)
-    points = [p1, p2, p3, p4]
-    chained_points_lists = p1.get_chained_points_lists_from_connected_points()
-    assert len(chained_points_lists) == 0, "No connections should mean no chains"
-
-    p1.connect_point(p2)
-    p2.connect_point(p3)
-    p4.connect_point(p3)
-    chained_points_lists = p2.get_chained_points_lists_from_connected_points()
-    assert len(chained_points_lists) ==1 
-    chained_points = chained_points_lists[0]
-    assert set(chained_points) == set(points) , "Not all points were traced"
-    points_reversed = points.copy()
-    points_reversed.reverse()
-
-    assert chained_points == points or chained_points == points_reversed, "Point order was traced wrong"
-
-
-
-
-def test_construct_chain_from_single_point():
-    p1 = Point(0,0)
-    p2 = Point(1,1)
-    p3 = Point(2,2)
-    points = [p1, p2, p3]
-    p1.retrace_state_from_connections()
-    assert len(p1.chains) == 0, "No connections should mean no chains"
-
-    p1.connect_point(p2)
-    p2.connect_point(p3)
-    p2.retrace_state_from_connections()
-    assert len(p1.chains) ==1 
-    chain = list(p1.chains)[0]
-    assert type(chain) == Chain
-    assert set(chain.points) == set(points) , "Not all points were traced"
-    points_reversed = points.copy()
-    points_reversed.reverse()
-
-    assert chain.points == points or chain.points == points_reversed, "Point order was traced wrong"
-
-
-
-def test_multiple_chains_test():
-    raise NotImplementedError()
-
-def test_reconstruct_a_blob():
-    raise NotImplementedError()
-
-def test_reconstruct_multiple_blobs():
-    raise NotImplementedError()
-
-def test_get_on_blob_point_index():
-    blob = create_valid_blob()
-    for chain in blob.chain_loop:
-        for i in range(chain.point_number):
-            blob_point_index = chain.get_on_blob_point_index(blob, i)
-            chain_point = chain.points[i]
-            blob_point = blob.get_point(blob_point_index)
-            assert chain_point == blob_point
-
-
-def test_chain_is_equivalent_to_other():
-    raise NotImplementedError()
-
-def test_isert_point_between_other_points():
-    raise NotImplementedError()
-
-def test_swap_point_connections():
-    raise NotImplementedError()    
-
-def test_chain_collection_equvalent_to_another_chain_collection():
-    raise NotImplementedError()
-
-
-### if I will not remove blob references from chains:
-
-def test_switch_blob_references_both_none():
-    chain = Chain()
-    chain.blob_right = None
-    chain.blob_left = None
-    
-    chain.swap_blob_references()
-    
-    assert chain.blob_right is None
-    assert chain.blob_left is None
-
-def test_switch_blob_references_one_none():
-    blob = Blob()
-    chain = Chain()
-    chain.blob_right = blob
-    chain.blob_left = None
-    
-    chain.swap_blob_references()
-    
-    assert chain.blob_right is None
-    assert chain.blob_left == blob
-
-def test_switch_blob_references_both_set():
-    blob1 = Blob()
-    blob2 = Blob()
-    chain = Chain()
-    chain.blob_right = blob1
-    chain.blob_left = blob2
-    
-    chain.swap_blob_references()
-    
-    assert chain.blob_right == blob2
-    assert chain.blob_left == blob1
-
-def test_switch_blob_references_same_blob():
-    blob = Blob()
-    chain = Chain()
-    chain.blob_right = blob
-    chain.blob_left = blob
-    
-    with pytest.raises(ValueError):
-        chain.swap_blob_references()
-
-def test_switch_blob_references_no_blobs():
-    chain = Chain()
-    
-    chain.swap_blob_references()
-    
-    assert chain.blob_right is None
-    assert chain.blob_left is None

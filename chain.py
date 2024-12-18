@@ -39,9 +39,6 @@ class Chain:
 
     points:List["Point"]
 
-    blob_left = None 
-    blob_right= None
-
 
     @classmethod
     def from_point_list(cls, points:Sequence["Point"], color = None) -> "Chain":
@@ -168,12 +165,6 @@ class Chain:
         else:
             return False
 
-    def set_blobs(self, right = None, left = None):
-        if right:
-            self.blob_right = right
-        if left:
-            self.blob_left = left
-
     @property
     def is_unmoving(self)->bool:
         if self.is_unmoving_override is not None:
@@ -182,47 +173,18 @@ class Chain:
             return True
         return self.blob_left.is_unmoving_override or self.blob_right.is_unmoving_override    
     
-    @property
-    def blobs(self):
-        blobs = []
-        if self.blob_right is not None:
-            blobs.append(self.blob_right)
-        if self.blob_left is not None:
-            blobs.append(self.blob_left)
-        return blobs
     
     def cut(self, point_index:int|Point):
         if type(point_index) is Point:
             point_index = self.points.index(point_index)
         if point_index <= 0 or point_index >= self.point_number - 1:
             raise ValueError("You are trying to cut too close to one of the ends of the chain. You are cutting at:", point_index, "While minimum is 1 and max is", self.point_number-2)
-        
-        #remember the chain orientation, because a valid blob state is required for its calculation
-        is_flipped = []
-        for blob in self.blobs:
-            is_flipped.append(blob.is_chain_backwards(self))
-
         start_points =  self.points[:point_index+1]
         end_points =    self.points[point_index:]
-
         self.points = start_points
         chain_start = self
-        
         chain_end = Chain.from_point_list(points=end_points, color=self.color)
-        chain_end.set_blobs(right=self.blob_right, left=self.blob_left)
-
-        assert chain_start.is_connected_to(chain_end)
-
-        for i, blob in enumerate(self.blobs):
-
-            old_chain_index = blob.chain_loop.index(self)
-            blob.chain_loop.remove(self)
-            start, end = chain_start, chain_end
-            if is_flipped[i]:
-                start, end = end, start
-            blob.chain_loop.insert(old_chain_index, end)
-            blob.chain_loop.insert(old_chain_index, start)
-        
+        assert chain_start.is_connected_to(chain_end)        
         return chain_start, chain_end
     
     def __str__(self) -> str:
@@ -326,14 +288,7 @@ class Chain:
         point_to_insert.swap_connections_with(point_to_remove)
         self.points[point_index] = point_to_insert
     
-    def unregister_from_blobs(self):
-        # pass
-        if self.blob_left is not None:
-            self.blob_left.chain_loop.remove(self)
-            self.blob_left = None
-        if self.blob_right is not None:
-            self.blob_right.chain_loop.remove(self)
-            self.blob_right = None
+    
     
     def close(self):
         if self.point_start != self.point_end:
@@ -396,11 +351,6 @@ class Chain:
     
     name:str = None
 
-    def swap_blob_references(self):
-        self.blob_left, self.blob_right = self.blob_right, self.blob_left
-        if self.blob_right is not None and self.blob_right == self.blob_left:
-            raise ValueError(self, "Chain references should not point to the same blob:", self.blob_left)
-    
     def switch_endpoint_to(self, endpoint:Point, target:Point):
         is_start_point = endpoint == self.point_start
         self.remove_point(endpoint)
@@ -418,11 +368,7 @@ class Chain:
             if point not in [self.point_start, self.point_end]:
                 assert len(point.connected_points) == 2, "inner chain points should not be intersections"
             
-        for blob in self.blobs:
-            assert self in blob.chain_loop, "Non mutual blob-chain reference"
-        
-        if len(self.blobs) == 2:
-            assert self.blob_left != self.blob_right
+
         
     @classmethod
     def construct_chains_from_point_connections(cls, point:Point):
