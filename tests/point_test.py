@@ -267,7 +267,6 @@ def test_disconnect_point_not_connected_does_nothing():
     assert p2 not in p1.connected_points
     assert p1 not in p2.connected_points
 
-
 def test_self_connection_not_allowed():
     # Create a point
     p1 = Point(0, 0)
@@ -279,3 +278,81 @@ def test_self_connection_not_allowed():
     # Check adjacency
     assert p1 not in p1.connected_points
 
+
+from point import connect_point_list
+
+def test_connect_point_list():
+    # Create points
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+    p4 = Point(3, 3)
+    points = [p1, p2, p3, p4]
+
+    # Connect points sequentially using connect_point_list
+    connect_point_list(points)
+
+    # Check connections
+    assert p2 in p1.connected_points and len(p1.connected_points) == 1
+    assert p1 in p2.connected_points and p3 in p2.connected_points and len(p2.connected_points) == 2
+    assert p2 in p3.connected_points and p4 in p3.connected_points and len(p3.connected_points) == 2
+    assert p3 in p4.connected_points and len(p4.connected_points) == 1
+
+    # Validate connections for all points
+    for point in points:
+        point.assert_point_is_valid()
+
+def test_insert_point_between_other_points():
+    # Create points
+    p1 = Point(0, 0)
+    p2 = Point(1, 1)
+    p3 = Point(2, 2)
+
+    # Case 1: p2 and p3 are not connected, should raise an error
+    try:
+        p1.insert_between(p2, p3)
+    except ValueError as e:
+        assert str(e) == "Points not connected"
+
+    # Connect p2 and p3
+    p2.connect_point(p3)
+
+    # Case 2: p2 and p3 are connected, insert p1 between them
+    p1.insert_between(p2, p3)
+
+    # Check connections
+    assert p1 in p2.connected_points and len(p2.connected_points) == 1
+    assert p1 in p3.connected_points and len(p3.connected_points) == 1
+    assert p2 in p1.connected_points and p3 in p1.connected_points and len(p1.connected_points) == 2
+    
+    # Validate connections for all points
+    p1.assert_point_is_valid()
+    p2.assert_point_is_valid()
+    p3.assert_point_is_valid()
+
+def test_swap_point_connections():
+    # Create points
+    p1 = Point(1, 1)
+    p2 = Point(2, 2)
+    p3 = Point(3, 3)
+    p4 = Point(4, 4)
+    p5 = Point(5, 5)
+    points = [p1, p2, p3, p4, p5]
+
+    # Setup initial connections
+    p1.connect_point(p3)
+    p3.connect_point(p4)
+    p2.connect_point(p4)
+    p5.connect_point(p4)
+    # 1 - 3 - 4 - 2
+    #         |
+    #         5
+    p1.swap_connections_with(p4)
+    # 4 - 3 - 1 - 2
+    #         |
+    #         5
+    assert p4.connected_points == {p3}
+    assert p1.connected_points == {p3, p2, p5}
+
+    for point in points:
+        point.assert_point_is_valid()

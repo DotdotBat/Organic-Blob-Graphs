@@ -376,16 +376,6 @@ class Chain:
         all_connected_points = {point for chain in chained_points_lists for point in chain}
         new_chains = [cls.from_point_list(points) for points in chained_points_lists]
         return new_chains
-
-    def is_equivalent_to(self, other:"Chain"):
-        if self.points == other.points:
-            return True
-        
-        reversed_points = other.points.copy()
-        reversed_points.reverse()
-        if self.points == reversed_points:
-            return True
-        return False
     
     @staticmethod
     def find_all_endpoints(chains:list["Chain"]):
@@ -395,3 +385,27 @@ class Chain:
                 endpoints.add(chain.point_start)
                 endpoints.add(chain.point_end)
         return endpoints
+    
+    def __eq__(self, value:"Chain"):
+        if self.points == value.points:
+            return True
+        rev = value.points.copy()
+        rev.reverse()
+        return self.points == rev
+    
+    def __hash__(self):
+        if self.point_number < 2:
+            return hash(Chain) + hash(str(self.points))
+        if hash(self.point_start) < hash(self.point_end):
+            return hash(Chain) + hash(str(self.points))
+        else:
+            points = self.points.copy()
+            points.reverse()
+            return hash(Chain) + hash(str(points))
+
+    @staticmethod
+    def are_collections_equivalent(col1, col2):
+        col1, col2 = list(col1), list(col2)
+        col1.sort(key=hash)
+        col2.sort(key=hash)
+        return col1 == col2

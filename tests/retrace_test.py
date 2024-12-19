@@ -41,4 +41,7 @@ def test_construct_chain_from_single_point():
     chain = chains[0]
     assert type(chain) == Chain
     assert set(chain.points) == set(points) , "Not all points were traced"
-    assert chain.is_equivalent_to(Chain.from_point_list(points))
+    assert chain == Chain.from_point_list(points)
+
+
+

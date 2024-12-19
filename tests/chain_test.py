@@ -364,7 +364,7 @@ def test_insert_midpoint():
         chains = Chain.construct_chains_from_point_connections(midpoint)
         assert len(chains) == 1
         constructed_chain = chains[0]
-        assert chain.is_equivalent_to(constructed_chain)
+        assert chain==constructed_chain
 
 
 def test_find_biggest_gap_basic_case():
@@ -640,3 +640,73 @@ def test_switch_endpoint_to_one_point_chain():
     assert chain.points == [target]
     with pytest.raises(AssertionError):
         chain.assert_is_valid()#it is a one point chain, it is invalid
+
+def test_chain_is_equivalent_to_other(): 
+    p1, p2, p3 = Point(1,1), Point(2,2), Point(3,3)
+    points = [p1,p2,p3]
+    reversed_points = [p3,p2,p1]
+    incomplete_points = [p1,p2]
+    reordered_points = [p1,p3,p2]
+    chain = Chain.from_point_list(points)
+    reversed_chain = Chain.from_point_list(reversed_points)
+    incomplete_chain = Chain.from_point_list(incomplete_points)
+    reordered_chain = Chain.from_point_list(reordered_points)
+    chain_copy = Chain.from_point_list([p1,p2,p3])
+    assert chain == reversed_chain
+    assert chain != incomplete_chain
+    assert chain != reordered_chain
+    assert chain == chain_copy
+    
+
+def test_chain_collection_equivalent_to_another_chain_collection():
+    # Define some points
+    p1, p2, p3, p4 = Point(1, 1), Point(2, 2), Point(3, 3), Point(4, 4)
+
+    # Create chains
+    chain1 = Chain.from_point_list([p1, p2, p3])
+    chain1a = Chain.from_point_list([p1, p2, p3])
+    reversed_chain1 = Chain.from_point_list([p3, p2, p1]) 
+    chain3 = Chain.from_point_list([p1, p3, p4])
+    chain3a = Chain.from_point_list([p1, p3, p4])
+    reversed_chain3 = Chain.from_point_list([p4, p3, p1]) 
+    unique_chain5 = Chain.from_point_list([p1, p2])      # Not equivalent to chain1 or chain3
+
+    # Test 1: Identical collections (same order)
+    collection1 = [chain1, chain3]
+    collection1_copy = [chain1a, chain3a]
+    assert Chain.are_collections_equivalent(collection1, collection1_copy)
+
+    # Test 2: Identical collections (different order)
+    collection1 = [chain1, chain3]
+    collection1_revesed = [chain3a, chain1a]
+    assert Chain.are_collections_equivalent(collection1, collection1_revesed)
+
+    # Test 3: Mismatched collections (one chain missing)
+    collection1 = [chain1, chain3]
+    collection1_incomplete = [chain1a]
+    assert not Chain.are_collections_equivalent(collection1, collection1_incomplete)
+
+    # Test 4: Mismatched collections (different chains)
+    collection1 = [chain1, chain3]
+    different_collection = [chain1a, unique_chain5]
+    assert not Chain.are_collections_equivalent(collection1, different_collection)
+
+    # Test 5: Collections with reversed chains
+    collection1 = [chain1, chain3]
+    collection2 = [reversed_chain1, reversed_chain3]  # chains are reversed versions
+    assert Chain.are_collections_equivalent(collection1, collection2)
+
+    # Test 6: Empty collections
+    collection1 = []
+    collection2 = []
+    assert Chain.are_collections_equivalent(collection1, collection2)
+
+    # Test 7: One empty collection, one non-empty
+    collection1 = [chain1, chain3]
+    collection2 = []
+    assert not Chain.are_collections_equivalent(collection1, collection2)
+
+    # Test 8: Duplicate chains in one collection
+    collection1 = [chain1, chain3, chain1a]  # chain1 appears twice
+    collection2 = [chain1a, chain3a, chain3] # chain3 appears twice
+    assert not Chain.are_collections_equivalent(collection1, collection2)

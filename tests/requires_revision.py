@@ -4,13 +4,22 @@ from chain import Chain
 from blob_test import assert_references
 from blob import Blob
 from blob_test import create_valid_blob     
+
+
+  
+
 ##################################
 # retrace_test.py
 
-
-
 def test_multiple_chains_test():
+
+    # 1 - 2 - 5 - 6
+    # |   |   |
+    # 3 - 4   7
+    
     raise NotImplementedError()
+
+
 
 def test_reconstruct_a_blob():
     raise NotImplementedError()
@@ -28,17 +37,10 @@ def test_get_on_blob_point_index():
             assert chain_point == blob_point
 
 
-def test_chain_is_equivalent_to_other():    
-    raise NotImplementedError()
 
-def test_isert_point_between_other_points():
-    raise NotImplementedError()
 
-def test_swap_point_connections():
-    raise NotImplementedError()    
 
-def test_chain_collection_equivalent_to_another_chain_collection():
-    raise NotImplementedError()
+
 
 ##################################
 
