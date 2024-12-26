@@ -15,20 +15,7 @@ class Blob:
     @classmethod
     def from_chain_loop(cls, ccw_chain_loop:List[Chain]):
         blob = cls()
-        blob.chain_loop = ccw_chain_loop
-
-        # if len(ccw_chain_loop)==1:
-        #     raise NotImplementedError("We do not handle yet a case with so little chains", ccw_chain_loop)
-    
-        for chain_index, chain in enumerate(ccw_chain_loop):   
-            blob_is_on_left_of_chain =  blob.is_chain_backwards(chain_index)
-            if blob.is_clockwise():
-                blob_is_on_left_of_chain = not blob_is_on_left_of_chain
-            if blob_is_on_left_of_chain:
-                chain.set_blobs(right=blob)
-            else:
-                chain.set_blobs(left=blob)
-        blob.assert_is_valid()
+        blob.chain_loop = ccw_chain_loop.copy()
         return blob
 
     
@@ -276,36 +263,6 @@ class Blob:
 
         self.chain_loop = chlp[:]
 
-    def assert_all_references_are_mutual(self):
-        chains = self.chain_loop
-        chains_points = {point for chain in chains for point in chain.points}
-        points = list(chains_points)
-
-        # Blob -> Chain
-        for chain in self.chain_loop:
-            assert self in chain.blobs
-
-        # Chain -> Blob
-        for chain in chains:
-            for blob in chain.blobs:
-                assert chain in blob.chain_loop, "Chain is not found it blob's chain loop"
-
-        # Chain -> Point
-        for chain in chains:
-            for point in chain.points:
-                assert chain in point.chains, "Chain not found in point's chains set"
-
-        # Point -> Chain
-        for point in points:
-            for chain in point.chains:
-                assert point in chain.points,"Point not found in chain's points"
-
-        assert points, "No points found in chains"
-            
-        
-        for point in points:
-            for other in point.connected_points:
-                assert point in other.connected_points
 
     def assert_is_valid(self):
         assert len(self.chain_loop)>0 , "Chain loop is empty"
@@ -343,28 +300,6 @@ class Blob:
                 disconnected = True
             assert not disconnected ,f"Blob of two chains is not circularly connected: {self.chain_loop}"
 
-        #------------------------------#
-        #Blob_references on chains check
-        #------------------------------#
-        self.assert_all_references_are_mutual()
-
-        #now check that this blob is referenced on the correct(right or left) side of each chain
-        is_cw = self.is_clockwise()
-        blob_on_right_side = is_cw
-        for i, chain in enumerate(self.chain_loop):
-            blob_on_right_side_of_this_chain = blob_on_right_side
-            if self.is_chain_backwards(i):
-                blob_on_right_side_of_this_chain = not blob_on_right_side_of_this_chain
-            if blob_on_right_side_of_this_chain:
-                correct = (chain.blob_right == self) and (chain.blob_left  != self)
-                assert correct, f"""{chain}, blob refererences are incorrect,
-                        expected right: self - {self}, actual: {chain.blob_right},
-                        expected left: not self, actual: {chain.blob_left}"""
-            else:
-                correct = (chain.blob_left  == self) and (chain.blob_right != self)
-                assert correct, f"""{chain}, blob refererences are incorrect\n,
-                        expected right:not self,  actual: {chain.blob_right}\n,
-                        expected left: self - {self}, actual: {chain.blob_left}"""
             
 
     cashed_area: float

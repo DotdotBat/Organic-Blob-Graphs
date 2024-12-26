@@ -1,3 +1,4 @@
+from planar_graph import get_faces_of_planar_graph
 from point import Point
 from typing import List, Sequence, Tuple
 import math
@@ -409,3 +410,39 @@ class Chain:
         col1.sort(key=hash)
         col2.sort(key=hash)
         return col1 == col2
+    
+    @staticmethod
+    def get_chain_loops_from_chains(chains:list["Chain"]):
+        
+        #constract_graph for traversal:
+        points = set([c.point_start for c in chains] + [c.point_end for c in chains])
+        verticies_to_points = {(point.co.x,point.co.y) : point for point in points}
+        verticies = list(verticies_to_points.keys())
+        edges = [((c.point_start.co.x,c.point_start.co.y), (c.point_end.co.x,c.point_end.co.y)) for c in chains]
+        connections = dict()
+        for v in verticies:
+            connections[str(v)] = []
+            connections
+        for edge in edges:
+            a, b = edge
+            connections[str(a)].append(b)
+            connections[str(b)].append(a)
+        edge_loops = get_faces_of_planar_graph(graph_connections = connections, edges = edges)
+        edge_loops:list[list[tuple[Point, Point]]]
+        edge_to_chain = dict()
+        for chain in chains:
+            s = chain.point_start.co.x,chain.point_start.co.y
+            e = chain.point_end.co.x,chain.point_end.co.y
+            if str((s, e)) in edge_to_chain:
+                raise NotImplementedError("Two chains have the same endpoints, this algoritm is not built to handle that")
+                #The graph should be able to differentiate between the chains by a middlepoint
+            edge_to_chain[str((s, e))] = chain
+            edge_to_chain[str((e, s))] = chain
+        faces = list()
+        for edge_loop in edge_loops:
+            face = [edge_to_chain[str(edge)] for edge in edge_loop]
+            faces.append(face)
+        return faces
+        
+
+        
