@@ -413,34 +413,30 @@ class Chain:
     
     @staticmethod
     def get_chain_loops_from_chains(chains:list["Chain"]):
-        
         #constract_graph for traversal:
-        points = set([c.point_start for c in chains] + [c.point_end for c in chains])
-        verticies_to_points = {(point.co.x,point.co.y) : point for point in points}
-        verticies = list(verticies_to_points.keys())
-        edges = [((c.point_start.co.x,c.point_start.co.y), (c.point_end.co.x,c.point_end.co.y)) for c in chains]
-        connections = dict()
-        for v in verticies:
-            connections[str(v)] = []
-            connections
-        for edge in edges:
-            a, b = edge
-            connections[str(a)].append(b)
-            connections[str(b)].append(a)
-        edge_loops = get_faces_of_planar_graph(graph_connections = connections, edges = edges)
-        edge_loops:list[list[tuple[Point, Point]]]
+        edges = [(c.point_start, c.point_end) for c in chains]
+        point_loops = get_faces_of_planar_graph(edges = edges)
+        assert type(point_loops) == list
+        for point_loop in point_loops:
+            assert type(point_loop) == list        
         edge_to_chain = dict()
         for chain in chains:
-            s = chain.point_start.co.x,chain.point_start.co.y
-            e = chain.point_end.co.x,chain.point_end.co.y
+            s = chain.point_start
+            e = chain.point_end
             if str((s, e)) in edge_to_chain:
                 raise NotImplementedError("Two chains have the same endpoints, this algoritm is not built to handle that")
                 #The graph should be able to differentiate between the chains by a middlepoint
             edge_to_chain[str((s, e))] = chain
             edge_to_chain[str((e, s))] = chain
         faces = list()
-        for edge_loop in edge_loops:
-            face = [edge_to_chain[str(edge)] for edge in edge_loop]
+        for point_loop in point_loops:
+            assert type(point_loop) == list
+            face = []
+            for i, point in enumerate(point_loop):
+                next_point = point_loop[(i+1)%len(point_loop)]
+                chain = edge_to_chain.get(str((point, next_point)))
+                assert type(chain) == Chain
+                face.append(chain)
             faces.append(face)
         return faces
         
