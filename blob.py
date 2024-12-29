@@ -182,9 +182,14 @@ class Blob:
     def cut_at(self, point_index):
         if self.is_intersection_at(point_index):
             return self.get_chains_at_intersection(point_index)
-        
         chain, on_chain_point_index = self.get_chain_and_on_chain_point_index_at(point_index)
+        chain_index = self.chain_loop.index(chain)
+        flip = self.is_chain_backwards(chain_index=chain_index)
         chain_start, chain_end = chain.cut(on_chain_point_index)
+        if flip:
+            chain_start, chain_end = chain_end, chain_start
+        self.chain_loop[chain_index] = chain_end
+        self.chain_loop.insert(chain_index, chain_start)
         return chain_start, chain_end
     
     def get_chains_indexes_at_intersection(self, point_index:int):
@@ -206,13 +211,18 @@ class Blob:
         next_chain = self.chain_loop[n_i]
         return previous_chain, next_chain
 
-    def is_chain_backwards(self, chain:Chain|int)->bool:
+    def is_chain_backwards(self, chain:Chain= None, chain_index:int = None)->bool:
         """if Chain is provided, the blob references are used to quickly determine the result.
         but if we are changing/setting them, or can not trust them. Use the chain index."""
         if len(self.chain_loop) == 1:
                 return False #there is only one chain - of course it isn't backwards
         if type(chain) == int:
             chain_index = chain
+            chain = None
+        if chain_index == None:
+            chain_index = self.chain_loop.index(chain)
+            return self.is_chain_backwards(chain_index = chain_index)
+        if chain == None:
             next_index = (chain_index + 1) % len(self.chain_loop)
             chain = self.chain_loop[chain_index]
             next_chain = self.chain_loop[next_index]
@@ -228,18 +238,8 @@ class Blob:
                     are_end_to_end = chain.point_end == next_chain.point_end
                     is_second_chain_backward = are_end_to_end
                     return is_second_chain_backward
-            
+        raise RuntimeError("Shouldn't have reached this point, most likely an argument type error")    
         
-        chain:Chain
-        if chain.blob_left == self:
-            is_backwards = self.is_clockwise()
-            return is_backwards
-        elif chain.blob_right == self:
-            is_backwards = not self.is_clockwise()
-            return is_backwards
-        else:
-            chain_index = self.chain_loop.index(chain)
-            return self.is_chain_backwards(chain_index)
  
     def swap_chains(self, chains_to_remove:List[Chain], chains_to_insert:List[Chain]):
         chlp = self.chain_loop[:]
@@ -641,3 +641,23 @@ class Blob:
         obj_id = id(self)
         hex_addr = hex(obj_id)[2:]  # Remove '0x' prefix
         return f"<{str(self)} at 0x{hex_addr}>"
+
+    def __eq__(self, value):
+        if type(value) != type(self):
+            return False
+        my_points = self.points_list.copy()
+        your_points = value.points_list.copy()
+        for point_list in [my_points, your_points]:
+            if point_list[0] == point_list[-1]:
+                #a special case of a blob of only one chain, will not come up in real scenarios, it is easier to work around it than build on it. 
+                point_list.pop()
+        first_point = my_points[0]
+        if first_point not in your_points:
+            return False
+        first_point_index = your_points.index(first_point)
+        your_points = rotate_list(your_points, first_point_index)
+        assert my_points[0] == your_points[0]
+        if my_points[1] != your_points[1]:
+            your_points = rotate_list(your_points, 1)
+            your_points.reverse()
+        return my_points == your_points

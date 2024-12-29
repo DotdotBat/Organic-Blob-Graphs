@@ -78,13 +78,13 @@ def test_reconstruct_a_blob():
     assert chain.point_start == chain.point_end
     chain_loops = Chain.get_chain_loops_from_chains(chains) 
     assert len(chain_loops) == 1
-    # reconstracted_blobs = Blob.construct_blobs_from_chains(chains)
-    # assert len(reconstracted_blobs) == 1
-    # reconstracted_blob = reconstracted_blobs[0]
-    # assert blob.point_number == reconstracted_blob.point_number
-    # assert reconstracted_blob == blob
-    # blob.assert_is_valid()
-    # reconstracted_blob.assert_is_valid()
+    reconstracted_blobs = Blob.construct_blobs_from_chains(chains)
+    assert len(reconstracted_blobs) == 1
+    reconstracted_blob = reconstracted_blobs[0]
+    assert blob.point_number == reconstracted_blob.point_number
+    assert reconstracted_blob == blob
+    blob.assert_is_valid()
+    reconstracted_blob.assert_is_valid()
     
 
 

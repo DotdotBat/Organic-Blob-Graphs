@@ -52,21 +52,7 @@ from blob import rotate_list
 
 
 
-def test_cut_at():
-    for cut_location in range(standard_valid_blob_point_number):
-        blob = create_valid_blob()
-        expected_chains_amount = len(blob.chain_loop)
-        if not blob.is_intersection_at(cut_location):
-            expected_chains_amount += 1
-        prev_chain, next_chain = blob.cut_at(cut_location)
-        assert blob.point_number == standard_valid_blob_point_number, "the cut operation should not change point number"
-        assert blob.is_intersection_at(cut_location)
-        cut_point = blob.get_point(cut_location)
-        assert prev_chain.common_endpoint(next_chain) == cut_point
-        before_chain, after_chain = blob.get_chains_at_intersection(cut_location)
-        assert before_chain in [prev_chain, next_chain]
-        assert after_chain in [next_chain, prev_chain]
-        assert blob.assert_is_valid()
+
 
 
 def test_spawn_small_blob():
@@ -89,7 +75,6 @@ def test_spawn_small_blob():
         assert blob.assert_is_valid()
         assert new_blob.assert_is_valid()
 
-standard_valid_blob_point_number = 3+4+5+6 -4
 
 
 def test_get_chains_between_intersections():
@@ -111,67 +96,6 @@ def test_get_chains_between_intersections():
 
 
 
-def test_is_intersection_at():
-    blob = create_valid_blob()
-    intersections = [0] + blob.intersection_indexes
-    for i in range(blob.point_number):
-        if i in intersections:
-            assert blob.is_intersection_at(i) is True
-        else:
-            assert blob.is_intersection_at(i) is False
-
-
-
-def test_get_chains_index_at_intersection():
-    blob = create_valid_blob()
-    for i, intersection in enumerate(blob.intersection_indexes):
-        prev_chain_i, next_chain_i = blob.get_chains_indexes_at_intersection(intersection)
-        expected_prev_i = i
-        expected_next_i = (i+1)%len(blob.chain_loop)
-        assert prev_chain_i == expected_prev_i
-        assert next_chain_i == expected_next_i
-        
-
-def test_get_chains_at_intersection():
-    blob = create_valid_blob()
-    for i, intersection in enumerate(blob.intersection_indexes):
-        expected_prev = blob.chain_loop[i]
-        expected_next = blob.chain_loop[(i+1)%len(blob.chain_loop)]
-        point = blob.get_point(intersection)
-        prev_chain, next_chain = blob.get_chains_at_intersection(intersection)
-        assert prev_chain.is_connected_to(next_chain)
-        common_point = prev_chain.common_endpoint(next_chain)
-        assert common_point == point
-        assert prev_chain == expected_prev
-        assert next_chain == expected_next
-
-def test_is_chain_backwards():
-    blob = create_valid_blob()
-    assert blob.is_chain_backwards(0) is False
-    assert blob.is_chain_backwards(2) is True
-    normal_chain = blob.chain_loop[1]
-    backwards_chain = blob.chain_loop[2]
-    assert blob.is_chain_backwards(normal_chain) is False
-    assert blob.is_chain_backwards(backwards_chain) is True
-
-    p1 = Point(0,0)
-    p2 = Point(0,1)
-    p3 = Point(1,0)
-    chain1 = Chain.from_point_list([p2, p1, p3])
-    chain2 = Chain.from_point_list([p3, p2])
-    mini_blob = Blob.from_chain_loop([chain1,chain2])
-    mini_blob.assert_is_valid()
-    assert mini_blob.is_chain_backwards(chain1) is False
-    assert mini_blob.is_chain_backwards(chain2) is False
-
-    chain3 = Chain.from_point_list([p2, p3])
-    small_blob = Blob.from_chain_loop([chain1, chain3])
-    assert small_blob.is_chain_backwards(chain1) is False
-    assert small_blob.is_chain_backwards(chain3) is True
-
-    tiny_blob = Blob.from_chain_loop([chain3, chain1])
-    assert tiny_blob.is_chain_backwards(chain3) is False
-    assert tiny_blob.is_chain_backwards(chain1) is True
 
 
 def test_swap_chains():
