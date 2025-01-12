@@ -226,3 +226,6 @@ class Point:
         for point in others_points:
             self.connect_point(point)
         
+    @classmethod
+    def from_coordinates(cls, x:float, y:float):
+        return cls(x, y)

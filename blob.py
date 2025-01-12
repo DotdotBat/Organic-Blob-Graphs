@@ -1,3 +1,4 @@
+import warnings
 from chain import Chain
 from point import Point
 
@@ -27,22 +28,22 @@ class Blob:
         """list of indexes of all intersections excluding the 0 one.
         This way the number of indexes is the same as the number of chains
         and each one corresponds to a single intersection."""
-        sum = 0
+        i = 0
         indexes = []
         for chain in self.chain_loop:
-            sum+= len(chain.points) - 1
-            indexes.append(sum)
+            i+= len(chain.points) - 1
+            indexes.append(i)
         return indexes
 
     @property
     def point_number(self)->int:
-        sum = 0
+        i = 0
         for chain in self.chain_loop:
-            sum+= len(chain.points)
+            i+= len(chain.points)
 
         double_counted_endpoints_num = len(self.chain_loop)
-        sum-= double_counted_endpoints_num
-        return sum
+        i-= double_counted_endpoints_num
+        return i
     
     is_unmoving_override = False
 
@@ -103,7 +104,7 @@ class Blob:
         # its the oposite how it usually works because one axis (y) is flipped and the other isn't
         return area > 0
     
-    def get_inner_direction(self, point_index, normalized = False):
+    def get_inner_direction(self, point_index):
         next_point = self.get_point(point_index+1)
         previous_point = self.get_point(point_index-1)
         v = next_point.co - previous_point.co
@@ -195,8 +196,6 @@ class Blob:
     def get_chains_indexes_at_intersection(self, point_index:int):
         point_index %= self.point_number
         p_i = len(self.chain_loop) - 1
-        # if point_index==self.points_num:
-        #     return (p_i, 0)
         point_count = 0
         for n_i, next_chain in enumerate(self.chain_loop):
             if point_index == point_count:
@@ -216,7 +215,7 @@ class Blob:
         but if we are changing/setting them, or can not trust them. Use the chain index."""
         if len(self.chain_loop) == 1:
                 return False #there is only one chain - of course it isn't backwards
-        if type(chain) == int:
+        if isinstance(chain, int):
             chain_index = chain
             chain = None
         if chain_index == None:
@@ -300,10 +299,18 @@ class Blob:
                 disconnected = True
             assert not disconnected ,f"Blob of two chains is not circularly connected: {self.chain_loop}"
 
-            
-
+    remembered_rough_centroid_xy:tuple[float, float] = (math.inf, math.inf)
+    @property
+    def area(self):
+        actual_rough_centroid = self.rough_centroid_xy
+        if self.remembered_rough_centroid_xy != actual_rough_centroid:
+            self.remembered_rough_centroid_xy = actual_rough_centroid
+            self.cashed_area = None
+        if self.cashed_area is None:
+            self.cashed_area = self.calculate_area()
+        return self.cashed_area
     cashed_area: float
-    def recalculate_area(self):
+    def calculate_area(self):
         area = 0 
         for i in range(self.point_number):
             next_i = (i + 1) % self.point_number
@@ -315,7 +322,7 @@ class Blob:
             y2 = p2.co.y
             area += x1 * y2 - x2 * y1
         area/=2
-        self.cashed_area =  abs(area)
+        return abs(area)
 
     def set_blob_reference_on_chains(self):
         cw = self.is_clockwise()
@@ -379,14 +386,10 @@ class Blob:
             else:
                 central_index = self.intersection_indexes[0] 
                 # the index of the point between the chains as they are placed in chain loop. 
-                # We are in a special case of a special case, 
-                # I found this to be useful exactly once, 
-                # can be changed painlessly if need be. 
                 common_chain= chain2 if point1_index == central_index else chain1
             
             index = 0 if common_chain==chain1 else 1
             return index
-
 
         point1_chains_indexes = self.get_chains_indexes_at_point(point1_index)
         for chain_index in point1_chains_indexes:
@@ -435,7 +438,7 @@ class Blob:
         for chain in self.chain_loop:
             if only_movable_chains and chain.is_unmoving:
                 continue #skip the chain
-            i, next_i, gap_length = chain.find_biggest_gap() #todo: what if chain has only two points, and both are unmoving, but the chain itself if moving? Unlikely Edge case? yes. will mess up everything? eventually. Hard to track - yes, easy to fix - yes.
+            i, next_i, gap_length = chain.find_biggest_gap() 
             if gap_length> longest_gap_length_on_blob:
                 longest_gap_length_on_blob = gap_length
                 index = chain.get_on_blob_point_index(blob=self, chain_point_index=i)
@@ -456,10 +459,10 @@ class Blob:
             next_point = self.get_point(next_index)
             prev_gap = point.co.distance_squared_to(prev_point.co)
             next_gap = point.co.distance_squared_to(next_point.co)
-            sum = prev_gap + next_gap
-            if sum < smallest_sum:
+            index_sum = prev_gap + next_gap
+            if index_sum < smallest_sum:
                 i = point_index
-                smallest_sum = sum
+                smallest_sum = index_sum
         return i
 
     def modify_point_number(self, delta_num):
@@ -482,7 +485,6 @@ class Blob:
         circumference_distance_of_neigbors_to_ignore = minimal_width*2
         index_berth = math.ceil(circumference_distance_of_neigbors_to_ignore/self.link_length)
         if index_berth*2 >= self.point_number:
-            # minimal_width = self.actual_circumference/(math.pi)
             index_berth = (self.point_number//2) - 1
         else:
             pass 
@@ -661,3 +663,35 @@ class Blob:
             your_points = rotate_list(your_points, 1)
             your_points.reverse()
         return my_points == your_points
+
+    @classmethod
+    def construct_blobs_from_chains(cls, chains:list[Chain]):
+        chain_loops = Chain.get_chain_loops_from_chains(chains)
+        blobs = [Blob.from_chain_loop(chain_loop) for chain_loop in chain_loops]
+        return blobs
+    
+    def hash(self):
+        return hash((self.point_number, self.area))
+    
+    @property
+    def rough_centroid_xy(self):
+        '''isn't accurate, but efficient and deterministic'''
+        points = self.points_list
+        point_number = self.point_number
+        representatives_number = math.ceil(math.log2(point_number))
+        sum_x, sum_y = 0, 0
+        for r in range(representatives_number):
+            i = r * math.floor(point_number//representatives_number)
+            rp = points[i] #representative point
+            sum_x+= rp.co.x
+            sum_y+= rp.co.y
+        sum_x/=representatives_number
+        sum_y/=representatives_number
+        return (sum_x, sum_y)
+
+    @staticmethod
+    def are_collections_equivalent(col1, col2):
+        col1, col2 = list(col1), list(col2)
+        col1.sort(key=hash)
+        col2.sort(key=hash)
+        return col1 == col2

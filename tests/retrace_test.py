@@ -1,3 +1,4 @@
+import pytest
 from blob import Blob
 from point import Point
 from chain import Chain
@@ -55,10 +56,16 @@ def test_single_chain_loop_retracing():
     chain_loops = Chain.get_chain_loops_from_chains(chains) 
     assert len(chain_loops) == 1
     chain_loop = chain_loops[0]
-    blob = Blob.from_chain_loop(chain_loop)
-    blob.assert_is_valid()
+    reconstructed_blob = Blob.from_chain_loop(chain_loop)
+    reconstructed_blob.assert_is_valid()
+    assert reconstructed_blob == blob
+
     c1, c2 = chain.cut(chain.point_number//2)
     c2, c3 = c2.cut(c2.point_number//2)
+    #such mutulation of the reconstructed blob chains, without notifying the reconstracted blob, breaks it
+    with pytest.raises(AssertionError):
+        reconstructed_blob.assert_is_valid()
+    
     chains = [c1, c2, c3]
     chain_loops = Chain.get_chain_loops_from_chains(chains)
     assert len(chain_loops) == 1
@@ -86,6 +93,52 @@ def test_reconstruct_a_blob():
     blob.assert_is_valid()
     reconstracted_blob.assert_is_valid()
     
+from blob_test import create_valid_blob_collection, assert_no_doubles_in_list
 
+def test_reconstruct_a_blob_collection():
+    points, chains, blobs = create_valid_blob_collection()
+    root_point = points[0]
+    new_chains = Chain.construct_chains_from_point_connections(root_point)
+    assert Chain.are_collections_equivalent(chains, new_chains)
+    new_blobs = Blob.construct_blobs_from_chains(new_chains)
+    assert Blob.are_collections_equivalent(blobs, new_blobs)
+    for objects in [points, new_chains, new_blobs]:
+        assert_no_doubles_in_list(objects)
+        for o in objects:
+            o.assert_is_valid()
 
+def test_reconstruct_blobs_when_they_all_share_two_points():
+    p1, p2 = Point(-10, 0), Point(10, 0)
+    
+    middle_points = [Point.from_coordinates(0, i) for i in range(-10, 11)]
+
+    for mp in middle_points:
+        mp.connect_point(p1)
+        mp.connect_point(p2)
+    
+    chains = Chain.construct_chains_from_point_connections(p1)
+    for chain in chains:
+        assert chain.point_number == 3
+    blobs = Blob.construct_blobs_from_chains(chains)
+    for blob in blobs:
+        assert len(blob.chain_loop) == 2
+    
+    for i, mp in enumerate(middle_points):
+        expected_occurrence_number = 2
+        if i == 0 or i == len(middle_points) -1:
+            expected_occurrence_number = 1
+        occurrence_count = 0
+        for blob in blobs:
+            if mp in blob.points_list:
+                occurrence_count += 1
+        assert occurrence_count == expected_occurrence_number
+
+    for blob in blobs:
+        points = blob.points_list.copy()
+        points.remove(p1)
+        points.remove(p2)
+        assert len(points) == 2
+        i1, i2 = middle_points.index(points[0]), middle_points.index(points[1])
+        assert abs(i1 - i2) == 1
+    
 

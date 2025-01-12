@@ -1,6 +1,6 @@
 from planar_graph import get_faces_of_planar_graph
 from point import Point
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 import math
 import pygame
 from pygame.math import Vector2
@@ -45,10 +45,11 @@ class Chain:
     def from_point_list(cls, points:Sequence["Point"], color = None) -> "Chain":
         chain = cls(color)
         chain.points = points[:] #list soft copy 
-        #todo: connect point to it's neighbors
+        
+        #connect point to it's neighbors
         for i, point in enumerate(chain.points):
             last_index = len(chain.points) - 1
-            next_point = chain.points[i+1] if not i == last_index else None
+            next_point = chain.points[i+1] if i != last_index else None
             if next_point is None:
                 break
             point.connect_point(next_point)
@@ -80,8 +81,7 @@ class Chain:
         return chain 
 
     def apply_accumulated_offsets(self, ignore_unmoving_status = False):
-        if not ignore_unmoving_status:
-            if self.is_unmoving:
+        if not ignore_unmoving_status and self.is_unmoving:
                 return
         for point in self.points:
             point.apply_accumulated_offset(ignore_unmoving=ignore_unmoving_status)
@@ -108,8 +108,7 @@ class Chain:
         return l
     
     def enforce_link_length(self, link_length:float, ignore_umoving_status = False):
-        if not ignore_umoving_status:
-            if self.is_unmoving:
+        if not ignore_umoving_status and self.is_unmoving:
                 return
         for i in range(self.point_number-1):
             a = self.points[i]
@@ -170,9 +169,10 @@ class Chain:
     def is_unmoving(self)->bool:
         if self.is_unmoving_override is not None:
             return self.is_unmoving_override
-        if self.blob_left is None or self.blob_right is None:
-            return True
-        return self.blob_left.is_unmoving_override or self.blob_right.is_unmoving_override    
+        if self.point_number==2:
+            a, b = self.points[0], self.points[1]
+            return a.is_unmoving and b.is_unmoving
+        return False
     
     
     def cut(self, point_index:int|Point):
@@ -221,8 +221,7 @@ class Chain:
         return rot
 
     def add_right_offset(self, offset_magnitude, ignore_umoving_status = False):
-        if not ignore_umoving_status:
-            if self.is_unmoving:
+        if not ignore_umoving_status and self.is_unmoving:
                 return
         
         for i, p in enumerate(self.points):
@@ -235,7 +234,6 @@ class Chain:
     
     def get_on_blob_point_index(self, blob, chain_point_index):
         is_flipped = blob.is_chain_backwards(self)
-        chain_index = blob.chain_loop.index(self)
         point_count = 0 
         for chain in blob.chain_loop:
             if chain == self:
@@ -264,11 +262,11 @@ class Chain:
         return midpoint
     
     def remove_point(self, point:int|Point):
-        if type(point) == int:
+        if isinstance(point, int):
             point_index = point
             point = self.points[point_index]
         else:
-            point_index =  point_index = self.points.index(point)
+            point_index = self.points.index(point)
             point:Point
         last_index = len(self.points)-1
         if point_index>0 and point_index<last_index:
@@ -295,7 +293,7 @@ class Chain:
         if self.point_start != self.point_end:
             self.points.append(self.point_start)
     
-    is_unmoving_override:bool = None
+    is_unmoving_override:Optional[bool] = None
 
     def find_biggest_gap(self)->tuple [int, int, float]:
         if self.point_number<2:
@@ -345,12 +343,10 @@ class Chain:
             
     def unregister(self):
         """removes the mutual references with both points and blobs"""
-        # del self.points #might not be legal, if so just = []
         self.points.clear()
         self.unregister_from_blobs()
-        # del self
     
-    name:str = None
+    name:Optional[str] = None
 
     def switch_endpoint_to(self, endpoint:Point, target:Point):
         is_start_point = endpoint == self.point_start
@@ -374,7 +370,6 @@ class Chain:
     @classmethod
     def construct_chains_from_point_connections(cls, point:Point):
         chained_points_lists = point.get_chained_points_lists_from_connected_points()
-        all_connected_points = {point for chain in chained_points_lists for point in chain}
         new_chains = [cls.from_point_list(points) for points in chained_points_lists]
         return new_chains
     
@@ -415,10 +410,7 @@ class Chain:
     def get_chain_loops_from_chains(chains:list["Chain"]):
         #constract_graph for traversal:
         edges = [(c.point_start, c.point_end) for c in chains]
-        point_loops = get_faces_of_planar_graph(edges = edges)
-        assert type(point_loops) == list
-        for point_loop in point_loops:
-            assert type(point_loop) == list        
+        point_loops = get_faces_of_planar_graph(edges = edges)    
         edge_to_chain = dict()
         for chain in chains:
             s = chain.point_start
@@ -430,12 +422,10 @@ class Chain:
             edge_to_chain[str((e, s))] = chain
         faces = list()
         for point_loop in point_loops:
-            assert type(point_loop) == list
             face = []
             for i, point in enumerate(point_loop):
                 next_point = point_loop[(i+1)%len(point_loop)]
                 chain = edge_to_chain.get(str((point, next_point)))
-                assert type(chain) == Chain
                 face.append(chain)
             faces.append(face)
         return faces

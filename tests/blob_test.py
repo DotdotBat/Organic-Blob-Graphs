@@ -117,6 +117,7 @@ def test_cut_at():
         if not blob.is_intersection_at(cut_location):
             expected_chains_amount += 1
         prev_chain, next_chain = blob.cut_at(cut_location)
+        assert len(blob.chain_loop) == expected_chains_amount
         assert blob.point_number == standard_valid_blob_point_number, "the cut operation should not change point number"
         assert blob.is_intersection_at(cut_location)
         cut_point = blob.get_point(cut_location)
@@ -124,6 +125,7 @@ def test_cut_at():
         before_chain, after_chain = blob.get_chains_at_intersection(cut_location)
         assert before_chain in [prev_chain, next_chain]
         assert after_chain in [next_chain, prev_chain]
+        assert before_chain != after_chain
         blob.assert_is_valid()
 
 def test_blob_comparison():
@@ -137,7 +139,7 @@ def test_blob_comparison():
     same_blob.chain_loop.reverse()
     assert blob == same_blob
     assert not same_blob.is_intersection_at(4) 
-    c1, c2 = same_blob.cut_at(4)
+    c1, _ = same_blob.cut_at(4)
     assert blob == same_blob
     assert c1.point_number>2
     c1.remove_point(1)
@@ -218,3 +220,68 @@ def test_is_chain_backwards():
     tiny_blob = Blob.from_chain_loop([chain3, chain1])
     assert tiny_blob.is_chain_backwards(chain3) is False
     assert tiny_blob.is_chain_backwards(chain1) is True
+
+from point import connect_point_list
+def create_valid_blob_collection():
+    xs = [1,2,3,1,2,3,0,1,3,4,0,4,0,4]
+    ys = [3,3,3,2,2,2,1,1,1,1,0,0,4,4]
+    result_points = [Point.from_coordinates(xs[i], ys[i]) for i in range(14)]
+        # 10-----11
+        # |       |
+        # 6-7---8-9
+        # | |   | |
+        # | 3-4-5 |
+        # | | | | |
+        # | 0-1-2 |
+        # |       |
+        # 12-----13
+    c2,c3,c4=[6,7],[7,8],[8,9]
+    c5,c6 = [7,3], [8,5]
+    c7,c8 = [3,4], [4,5]
+    c9,c0,c1= [3,0,1],[4,1],[5,2,1]
+    c10 = [6,10,11,9]
+    c11 = [6,12,13,9]
+    indices_list = [c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11]
+    result_chains:list[Chain] = []
+    for indices in indices_list:
+        points = [result_points[i] for i in indices]
+        chain = Chain.from_point_list(points)
+        result_chains.append(chain)
+    # o--10---o
+    # |       |
+    # o2o-3-o4o
+    # | 5   6 |
+    # | o7o8o |
+    # | | 0 | |
+    # | 9-o-1 |
+    # |       |
+    # o--11---o  
+    chain_loops_indices =[ [10,2,3,4], [5,3,6,8,7], [7,0,9], [8,1,0], [2,5,9,1,6,4,11]]
+    result_blobs:list[Blob] = []
+    for chain_loop_indices in chain_loops_indices:
+        chain_loop = [result_chains[i] for i in chain_loop_indices]
+        result_blobs.append(Blob.from_chain_loop(chain_loop))
+    return result_points, result_chains, result_blobs
+
+def assert_no_doubles_in_list(l:list):
+    for i, a in enumerate(l):
+        for j, b in enumerate(l):
+            if j!=i:
+                assert b!=a
+            
+def test_create_valid_blob_collection():
+    points, chains, blobs = create_valid_blob_collection()
+    assert len(points)==14
+    for point in points:
+        point.assert_point_is_valid() 
+    assert len(points) == len(set(points)), "points uniqueness check failed"
+
+    assert len(chains)==12
+    for chain in chains:
+        chain.assert_is_valid()
+    assert len(chains) == len(set(chains))
+
+    assert len(blobs)==5
+    for blob in blobs:
+        blob.assert_is_valid()
+    assert_no_doubles_in_list(blobs) 
