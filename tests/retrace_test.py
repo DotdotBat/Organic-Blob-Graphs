@@ -41,7 +41,7 @@ def test_construct_chain_from_single_point():
     chains = Chain.construct_chains_from_point_connections(p1)
     assert len(chains) ==1 
     chain = chains[0]
-    assert type(chain) == Chain
+    assert isinstance(chain, Chain)
     assert set(chain.points) == set(points) , "Not all points were traced"
     assert chain == Chain.from_point_list(points)
 
@@ -74,6 +74,15 @@ def test_single_chain_loop_retracing():
     blob2.assert_is_valid()
     assert blob == blob2
 
+def test_multiple_connected_chain_loops_chain_retracing():
+    points, chains, _ = create_valid_blob_collection()
+    
+    new_chains = Chain.construct_chains_from_point_connections(points[0])
+    new_points = set()
+    for chain in new_chains:
+        new_points.update(chain.points)
+    assert set(points) == new_points
+    assert Chain.are_collections_equivalent(chains, new_chains)
 
 from blob_test import create_valid_blob
 def test_reconstruct_a_blob():
@@ -99,6 +108,8 @@ def test_reconstruct_a_blob_collection():
     points, chains, blobs = create_valid_blob_collection()
     root_point = points[0]
     new_chains = Chain.construct_chains_from_point_connections(root_point)
+    assert_no_doubles_in_list(new_chains)
+    assert len(new_chains) == len(chains)
     assert Chain.are_collections_equivalent(chains, new_chains)
     new_blobs = Blob.construct_blobs_from_chains(new_chains)
     assert Blob.are_collections_equivalent(blobs, new_blobs)
@@ -117,8 +128,11 @@ def test_reconstruct_blobs_when_they_all_share_two_points():
         mp.connect_point(p2)
     
     chains = Chain.construct_chains_from_point_connections(p1)
+    assert_no_doubles_in_list(chains)
+    assert len(chains) == len(middle_points)
     for chain in chains:
         assert chain.point_number == 3
+        assert chain.points[1] in middle_points
     blobs = Blob.construct_blobs_from_chains(chains)
     for blob in blobs:
         assert len(blob.chain_loop) == 2

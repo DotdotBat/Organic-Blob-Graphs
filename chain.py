@@ -408,27 +408,53 @@ class Chain:
     
     @staticmethod
     def get_chain_loops_from_chains(chains:list["Chain"]):
-        #constract_graph for traversal:
-        edges = [(c.point_start, c.point_end) for c in chains]
-        point_loops = get_faces_of_planar_graph(edges = edges)    
-        edge_to_chain = dict()
-        for chain in chains:
-            s = chain.point_start
-            e = chain.point_end
-            if str((s, e)) in edge_to_chain:
-                raise NotImplementedError("Two chains have the same endpoints, this algoritm is not built to handle that")
-                #The graph should be able to differentiate between the chains by a middlepoint
-            edge_to_chain[str((s, e))] = chain
-            edge_to_chain[str((e, s))] = chain
-        faces = list()
-        for point_loop in point_loops:
-            face = []
-            for i, point in enumerate(point_loop):
-                next_point = point_loop[(i+1)%len(point_loop)]
-                chain = edge_to_chain.get(str((point, next_point)))
-                face.append(chain)
-            faces.append(face)
+        chain_to_points, edge_to_chain = Chain.create_translation_dictionaries(chains)
+        edges = Chain._construct_graph_representation(chain_to_points)
+        point_loops = get_faces_of_planar_graph(edges = edges) 
+        faces = Chain.translate_point_loops_to_chain_loops(point_loops, edge_to_chain)
         return faces
-        
 
-        
+    @staticmethod  
+    def create_translation_dictionaries(chains:list["Chain"])-> tuple[dict[str:list[Point]],dict[str,"Chain"]]:
+        # problem: when two chains share both endpoints, they are represented by the same value
+        # solution: for every chain we will try to create two edges using a midpoint as a fake midpoint between them
+        edge_to_chain = dict()
+        chain_to_points = dict()         
+        for chain in chains:
+            if chain.point_number>2:
+                a, b, c = chain.point_start, chain.point_mid, chain.point_end
+                chain_to_points[str(chain)] = [a, b, c]
+                edge_to_chain[str((a, b))] = edge_to_chain[str((b, a))] = chain
+                edge_to_chain[str((b, c))] = edge_to_chain[str((c, b))] = chain
+            if chain.point_number == 2:
+                a, b = chain.point_start, chain.point_end
+                chain_to_points[str[chain]] = [a, b]
+                edge_to_chain[str((a, b))] = edge_to_chain[str((b, a))] = chain
+
+        return chain_to_points, edge_to_chain
+  
+    @staticmethod
+    def _construct_graph_representation(chain_to_points:dict[str:list[Point]])-> list[tuple[Point, Point]]:
+        edges = []
+        for points in chain_to_points.values():
+            for i in range(len(points) -1):
+                edges.append((points[i], points[i+1]))
+        return edges
+    
+    @staticmethod
+    def translate_point_loops_to_chain_loops(point_loop_list:list[list[Point]], edge_to_chain:dict[str,"Chain"])->list[list["Chain"]]:
+        chain_loops_list = []
+        for point_loop in point_loop_list:
+            assert point_loop[0] != point_loop[-1]
+            chain_loop = []
+            for i, a in enumerate(point_loop):
+                b = point_loop[i-1] if i!=0 else point_loop[-1]
+                chain = edge_to_chain[str((a,b))]
+                if len(chain_loop) == 0:
+                    already_added = False
+                else:
+                    already_added = chain is chain_loop[-1] or chain is chain_loop[0]
+                if not already_added:
+                    chain_loop.append(chain)
+            chain_loops_list.append(chain_loop)
+        return chain_loops_list

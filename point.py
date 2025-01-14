@@ -1,3 +1,4 @@
+from typing import Optional
 from pygame.math import Vector2
 
 def connect_point_list(points:list["Point"]):
@@ -49,9 +50,8 @@ class Point:
         no_correction_is_required = initial_distance>target_distance
         if initial_distance<0.01:#Not enough information to repell, better not risk it
             no_correction_is_required = True 
-        if not ignore_unmoving:
-            if self.is_unmoving and other.is_unmoving:
-                no_correction_is_required = True
+        if not ignore_unmoving and self.is_unmoving and other.is_unmoving:
+            no_correction_is_required = True
 
         ### SCENARIO 0
         if no_correction_is_required:
@@ -72,20 +72,20 @@ class Point:
         #we can reach this line only and only if just one of the points is unmoving
         # also ignore unmoving would have triggered the move_both_points scenario 
         
-        move_only_one_point = True #self.is_unmoving XOR other.is_unmoving
-        ### SCENARIO 2
-        if move_only_one_point:
-            unmoving_point = self if self.is_unmoving else other
-            moving_point = self if not self.is_unmoving else other
-            # So if one is unmoving, the other has to move not half, but the full distance
-            correction_amount = target_distance - initial_distance
-            correction_direction = moving_point.co - unmoving_point.co
-            correction_direction.scale_to_length(correction_amount)
-            c = correction_direction
-            moving_point.add_offset(c.x, c.y)
-            #unmoving point doesn't get an offset
+        
+        ### SCENARIO 2 - move only one point
+
+        unmoving_point = self if self.is_unmoving else other
+        moving_point = self if not self.is_unmoving else other
+        # So if one is unmoving, the other has to move not half, but the full distance
+        correction_amount = target_distance - initial_distance
+        correction_direction = moving_point.co - unmoving_point.co
+        correction_direction.scale_to_length(correction_amount)
+        c = correction_direction
+        moving_point.add_offset(c.x, c.y)
+        #unmoving point doesn't get an offset
     
-    is_unmoving_override:bool = None
+    is_unmoving_override:Optional[bool] = None
     
     
 
@@ -132,50 +132,14 @@ class Point:
             assert self in other.connected_points , f"Non mutual connection between {self} and {other}"
         
        
-    def _get_next_point_in_chained_connection(self, previous:"Point", current:"Point"):
-            assert len(current.connected_points) == 2
-            two_neigbors = current.connected_points.copy()
-            two_neigbors.remove(previous)
-            next_point = list(two_neigbors)[0]
-            return next_point
-    
-    def _trace_a_chained_point_list_recursively(self, from_point:"Point", direction:"Point", visited_intersections:list["Point"]):
-            if from_point not in visited_intersections:
-                visited_intersections.append(from_point)
-            points = [from_point, direction]
-            previous_point, current_point= from_point, direction
-
-            while len(current_point.connected_points) == 2:
-                next_point = self._get_next_point_in_chained_connection(previous_point, current_point)
-                points.append(next_point)
-                previous_point, current_point = current_point, next_point
-                if current_point in visited_intersections:
-                    break
-            last_point = current_point
-
-            points_list_list = [points]
-            if last_point in visited_intersections:
-                return points_list_list
-
-            directions_to_explore = last_point.connected_points.copy()
-            directions_to_explore.remove(previous_point)
-            for direction in directions_to_explore:
-                points_list_list.extend(
-                    self._trace_a_chained_point_list_recursively(
-                    from_point=last_point, direction=direction,
-                    visited_intersections = visited_intersections
-                    )
-                )
-            return points_list_list
     def _is_intersection_or_dead_end(self):
             return len(self.connected_points) != 2
     
-    def _traverse_to_an_intersection_or_dead_end(self):
+    def _traverse_to_an_intersection_or_dead_end(self)->"Point":
             if self._is_intersection_or_dead_end():
                 return self
             previous = self
             current = list(self.connected_points)[0]
-            current:Point
             while (not current._is_intersection_or_dead_end()):
                 directions = list(current.connected_points)
                 directions.remove(previous) #only forwards!
@@ -187,18 +151,27 @@ class Point:
             return current
     
     def get_chained_points_lists_from_connected_points(self)->list[list["Point"]]:
-        visited_intersections = []
         chained_point_lists = []
+        explored_directions = []
+        unexplored_directions = []
         root_point = self._traverse_to_an_intersection_or_dead_end()
-        root_point:Point
-        directions_to_explore = root_point.connected_points.copy()
-        if len(directions_to_explore) == 2:
-            # this means that this is a ring.
-            # If we explore both directions
-            # we'll endup with the same chain twice
-            directions_to_explore.pop()
-        for neighbor in directions_to_explore:
-            chained_point_lists.extend(self._trace_a_chained_point_list_recursively(from_point=root_point,direction = neighbor, visited_intersections = visited_intersections))
+        for neighbor in root_point.connected_points:
+            direction = (root_point, neighbor)
+            unexplored_directions.append(direction)
+        while len(unexplored_directions) > 0:
+            node, neighbor = direction = unexplored_directions.pop()
+            chained_points = node.get_chained_list_in_direction(neighbor)
+            chained_point_lists.append(chained_points)
+            explored_directions.append(direction)
+            twin_direction = chained_points[-1], chained_points[-2]
+            explored_directions.append(twin_direction)
+            if twin_direction in unexplored_directions:
+                unexplored_directions.remove(twin_direction)
+            endpoint = chained_points[-1]
+            for neighbor in endpoint.connected_points:
+                direction = endpoint, neighbor
+                if direction not in explored_directions and direction not in unexplored_directions:
+                    unexplored_directions.append(direction)
         return chained_point_lists
  
     def dismantle_structure(self):
@@ -207,10 +180,10 @@ class Point:
         for p in neigbors:
             p.dismantle_structure()
     
-    def insert_between(self, pointA:"Point", pointB:"Point"):
-        pointA.disconnect_point(pointB)
-        self.connect_point(pointA)
-        self.connect_point(pointB)
+    def insert_between(self, a:"Point", b:"Point"):
+        a.disconnect_point(b)
+        self.connect_point(a)
+        self.connect_point(b)
 
 
     def swap_connections_with(self, other:"Point"):
@@ -229,3 +202,14 @@ class Point:
     @classmethod
     def from_coordinates(cls, x:float, y:float):
         return cls(x, y)
+    
+    def get_chained_list_in_direction(self, direction:"Point"):
+        a, b = self, direction
+        l = [a, b]
+        while len(b.connected_points) == 2 and b is not self:
+            b_connections = list(b.connected_points)
+            b_connections.remove(a)
+            c = b_connections[0]
+            l.append(c)
+            a, b = b, c
+        return l

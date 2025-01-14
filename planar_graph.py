@@ -1,5 +1,9 @@
 from point import Point
 
+ 
+
+
+
 def get_faces_of_planar_graph(edges:list[tuple[Point, Point]])->list[list[Point]]:
     if len(edges) == 1:
         A, B = edges[0]
@@ -55,7 +59,7 @@ def face_traversal(points, adj):
                 continue  # Edge already used in this direction
 
             # Trace out a face starting from edge (u, adj[u][i])
-            face_vertices = trace_face(u, i, points, adj, used)
+            face_vertices = trace_face(u, i, adj, used)
 
             # Convert vertex ids to Point instances
             face_points = [points[vid] for vid in face_vertices]
@@ -141,7 +145,7 @@ def compute_angle(p_u, p_v):
     return angle
 
 
-def trace_face(u_start, i_start, points, adj, used):
+def trace_face(u_start, i_start, adj, used):
     """
     Traces out a face starting from a given edge.
 
@@ -195,7 +199,7 @@ def find_adjacent_index(u, v, adj):
     try:
         idx = adj[u].index(v)
     except ValueError:
-        raise Exception(f"Graph is not properly connected: vertex {v} not found in adj[{u}].")
+        raise ValueError(f"Graph is not properly connected: vertex {v} not found in adj[{u}].")
     return idx
 
 
