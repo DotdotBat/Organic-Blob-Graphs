@@ -139,7 +139,7 @@ def test_from_ivalid_chain_loop():
     chain2 = Chain.from_point_list([p2, p3])
     
     with pytest.raises(ValueError):
-        invalid_blob = Blob.from_chain_loop([chain1, chain2]) #The chain isn't closed
+        _ = Blob.from_chain_loop([chain1, chain2]) #The chain isn't closed
     
     chain3 = Chain.from_point_list([p1, p3])
     valid_blob = Blob.from_chain_loop([chain1, chain2, chain3])
@@ -171,8 +171,8 @@ def test_area_is_independent_of_blob_orientation():
     assert blob_ccw.is_clockwise() is True
     blob_cw.recalculate_area()
     blob_ccw.recalculate_area()
-    assert blob_cw.cashed_area == 1.0 
-    assert blob_ccw.cashed_area == 1.0 
+    assert blob_cw.cashed_area == pytest.approx(1.0)
+    assert blob_ccw.cashed_area == pytest.approx(1.0)
 
     blob = create_valid_blob()
     blob.recalculate_area()
@@ -186,7 +186,7 @@ def test_calculate_area_single_chain():
     
     blob = Blob.from_chain_loop([chain,niahc])
     blob.recalculate_area()
-    blob.cashed_area== 0.0  # No area for a line
+    assert blob.cashed_area== pytest.approx(0.0)  # No area for a line
 
 
 
@@ -363,7 +363,7 @@ def assert_references(blobs:List[Blob] = [], chains: List[Chain] = [], points:Li
 
     #point-point
     for point in points:
-        point.assert_point_is_valid()
+        point.assert_is_valid()
 
     if points == []:
         raise RuntimeError()

@@ -2,7 +2,7 @@ import warnings
 from chain import Chain
 from point import Point
 
-from typing import List
+from typing import List, Optional
 import math
 import random
 from list_util import rotate_list
@@ -262,16 +262,7 @@ class Blob:
 
         self.chain_loop = chlp[:]
 
-
-    def assert_is_valid(self):
-        assert len(self.chain_loop)>0 , "Chain loop is empty"
-        
-        for chain in self.chain_loop:
-            chain.assert_is_valid()
-        
-        #----------------------#
-        #loop connectivity check
-        #----------------------#
+    def assert_loop_is_connected(self):
         if len(self.chain_loop) == 1:
             chain = self.chain_loop[0]
             assert chain.point_start == chain.point_end, "Blob composed of a single, non-circlular chain"
@@ -298,6 +289,15 @@ class Blob:
             if e_to_s and not s_to_e:
                 disconnected = True
             assert not disconnected ,f"Blob of two chains is not circularly connected: {self.chain_loop}"
+
+    def assert_is_valid(self):
+        assert len(self.chain_loop)>0 , "Chain loop is empty"
+        
+        for chain in self.chain_loop:
+            chain.assert_is_valid()
+        
+        self.assert_loop_is_connected()
+        
 
     remembered_rough_centroid_xy:tuple[float, float] = (math.inf, math.inf)
     @property
@@ -377,19 +377,18 @@ class Blob:
         chains =  [self.chain_loop[i] for i in indexes]
         return chains
     
+    def _common_chain_index_of_2_chain_loop_when_both_intersections_are_given(self, point1_index):
+        chain1, chain2 = self.chain_loop
+        if chain1.point_number != chain2.point_number:
+            common_chain = chain1 if chain1.point_number<chain2.point_number else chain2
+        else:
+            common_chain= chain2 if point1_index != 0 else chain1
+        return 0 if common_chain==chain1 else 1
+    
     def get_points_common_chain_index(self, point1_index, point2_index):
         #special case:
         if len(self.chain_loop) ==2 and self.is_intersection_at(point1_index) and self.is_intersection_at(point2_index):
-            chain1, chain2 = self.chain_loop
-            if chain1.point_number != chain2.point_number:
-                common_chain = chain1 if chain1.point_number<chain2.point_number else chain2
-            else:
-                central_index = self.intersection_indexes[0] 
-                # the index of the point between the chains as they are placed in chain loop. 
-                common_chain= chain2 if point1_index == central_index else chain1
-            
-            index = 0 if common_chain==chain1 else 1
-            return index
+            self._common_chain_index_of_2_chain_loop_when_both_intersections_are_given(point1_index)
 
         point1_chains_indexes = self.get_chains_indexes_at_point(point1_index)
         for chain_index in point1_chains_indexes:
@@ -398,7 +397,6 @@ class Blob:
             is_common = point2 in chain.points
             if is_common:
                 return chain_index
-        raise RuntimeError("no common chain")
         
     def get_points_common_chain(self, point1_index, point2_index):
         chain_index = self.get_points_common_chain_index(point1_index, point2_index)
@@ -478,45 +476,6 @@ class Blob:
                 point_index = self.find_most_crowded_point_index()
                 self.remove_point(point_index)
 
-    def enforce_minimal_width(self, minimal_width:float, ignore_umoving_status = False):
-        if self.is_unmoving_override:
-            return
-        #todo: repeat until cannot find minimum width
-        circumference_distance_of_neigbors_to_ignore = minimal_width*2
-        index_berth = math.ceil(circumference_distance_of_neigbors_to_ignore/self.link_length)
-        if index_berth*2 >= self.point_number:
-            index_berth = (self.point_number//2) - 1
-        else:
-            pass 
-        index_a, index_b, _= self.find_local_minimum_width_pair_under_target_width(sample_number=3, index_berth=index_berth,target_width=minimal_width)
-        if index_a == -1: #code for - "didn't found a qualifying local minimum"
-            return
-
-        point_a, point_b = self.get_point(index_a), self.get_point(index_b)
-        point_a.mutually_repel(point_b, target_distance = minimal_width, ignore_unmoving=ignore_umoving_status)
-        #propogate from them
-        def pair_indexes_next_to_the(a:int, b:int, left=False, right=False):
-            prev_a, next_a = self.neighboring_indexes(a)
-            prev_b, next_b = self.neighboring_indexes(b)
-            if left: return prev_a, next_b
-            if right: return next_a, prev_b
-        left_a, left_b = pair_indexes_next_to_the(left=True, a=index_a, b=index_b)
-        right_a, right_b = pair_indexes_next_to_the(right=True, a=index_a, b=index_b)
-        move_to_the_left = self.index_distance(left_a, left_b)>index_berth and self.points_distance(left_a, left_b)<minimal_width
-        move_to_the_right = self.index_distance(right_a, right_b)>index_berth and self.points_distance(right_a, right_b)<minimal_width
-        
-        while move_to_the_left:
-            point_a, point_b = self.get_point(left_a), self.get_point(left_b)
-            point_a.mutually_repel(point_b, target_distance = minimal_width, ignore_unmoving=ignore_umoving_status)
-            left_a, left_b = pair_indexes_next_to_the(left=True, a=left_a, b=left_b)
-            move_to_the_left = self.index_distance(left_a, left_b)>index_berth and self.points_distance(left_a, left_b)<minimal_width
-
-        while move_to_the_right:
-            point_a, point_b = self.get_point(right_a), self.get_point(right_b)
-            point_a.mutually_repel(point_b, target_distance = minimal_width, ignore_unmoving=ignore_umoving_status)
-            right_a, right_b = pair_indexes_next_to_the(right=True, a=right_a, b=right_b)
-            move_to_the_right = self.index_distance(right_a, right_b)>index_berth and self.points_distance(right_a, right_b)<minimal_width
-
     def index_distance(self, index_a:int, index_b:int):
         """given the indexes of two points returns the shortest of the two distances between them in index difference"""
         normal_difference = abs(index_a - index_b)
@@ -539,11 +498,11 @@ class Blob:
     
     @property
     def actual_circumference(self)->float:
-        sum = 0
+        s = 0
         for i in range(self.point_number):
-            prev, next = self.neighboring_indexes(i)
-            sum += self.points_distance(i, next)
-        return sum
+            _, n = self.neighboring_indexes(i)
+            s += self.points_distance(i, n)
+        return s
     
     @property
     def link_length(self)->float:
@@ -628,7 +587,7 @@ class Blob:
         point_number = self.point_number
         return (point_index+point_number//2)%point_number
 
-    name:str = None
+    name:Optional[str] = None
     
     def __str__(self) -> str:
         named = ""
@@ -671,7 +630,8 @@ class Blob:
         return blobs
     
     def hash(self):
-        return hash((self.point_number, self.area))
+        x, y = self.true_centroid
+        return hash((self.point_number, self.area, x, y))
     
     @property
     def rough_centroid_xy(self):
@@ -692,6 +652,16 @@ class Blob:
     @staticmethod
     def are_collections_equivalent(col1, col2):
         col1, col2 = list(col1), list(col2)
-        col1.sort(key=hash)
-        col2.sort(key=hash)
-        return col1 == col2
+        col1.sort(key=lambda b:b.hash())
+        col2.sort(key=lambda b:b.hash())
+        for a, b in zip(col1, col2):
+            if a != b: 
+                return False
+        return True
+    
+    @property
+    def true_centroid(self):
+        sum_x = sum(p.co.x for p in self.points_list)
+        sum_y = sum(p.co.y for p in self.points_list)
+        x, y = sum_x/self.point_number, sum_y/self.point_number
+        return (x, y)

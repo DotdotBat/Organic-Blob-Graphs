@@ -63,8 +63,6 @@ def test_comparisons():
 
     assert p1 != p2
     assert p1 != p3
-    assert p1 == p1
-
 
 def test_mutually_repel_no_correction_needed():
     p1 = Point(0, 0)
@@ -204,7 +202,7 @@ def test_connect_point_adds_to_adjacent_points():
     # Check adjacency
     assert p2 in p1.connected_points
     assert p1 in p2.connected_points  # Bidirectional
-    p1.assert_point_is_valid()
+    p1.assert_is_valid()
 
 
 def test_disconnect_removes_from_adjacent_points():
@@ -219,7 +217,7 @@ def test_disconnect_removes_from_adjacent_points():
     # Check adjacency
     assert p2 not in p1.connected_points
     assert p1 not in p2.connected_points  # Bidirectional
-    p1.assert_point_is_valid()
+    p1.assert_is_valid()
 
 
 
@@ -300,7 +298,7 @@ def test_connect_point_list():
 
     # Validate connections for all points
     for point in points:
-        point.assert_point_is_valid()
+        point.assert_is_valid()
 
 def test_insert_point_between_other_points():
     # Create points
@@ -326,9 +324,9 @@ def test_insert_point_between_other_points():
     assert p2 in p1.connected_points and p3 in p1.connected_points and len(p1.connected_points) == 2
     
     # Validate connections for all points
-    p1.assert_point_is_valid()
-    p2.assert_point_is_valid()
-    p3.assert_point_is_valid()
+    p1.assert_is_valid()
+    p2.assert_is_valid()
+    p3.assert_is_valid()
 
 def test_swap_point_connections():
     # Create points
@@ -355,4 +353,4 @@ def test_swap_point_connections():
     assert p1.connected_points == {p3, p2, p5}
 
     for point in points:
-        point.assert_point_is_valid()
+        point.assert_is_valid()

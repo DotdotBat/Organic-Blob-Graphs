@@ -356,7 +356,7 @@ class Chain:
     def assert_is_valid(self):
         assert self.point_number >= 2
         for i, point in enumerate(self.points):
-            point.assert_point_is_valid()
+            point.assert_is_valid()
             if i>0:
                 previous_point = self.points[i-1]
                 assert point.is_connected_to_point(previous_point)
@@ -408,8 +408,8 @@ class Chain:
     
     @staticmethod
     def get_chain_loops_from_chains(chains:list["Chain"]):
-        chain_to_points, edge_to_chain = Chain.create_translation_dictionaries(chains)
-        edges = Chain._construct_graph_representation(chain_to_points)
+        chain_id_to_points, edge_to_chain = Chain.create_translation_dictionaries(chains)
+        edges = Chain._construct_graph_representation(chain_id_to_points)
         point_loops = get_faces_of_planar_graph(edges = edges) 
         faces = Chain.translate_point_loops_to_chain_loops(point_loops, edge_to_chain)
         return faces
@@ -421,16 +421,19 @@ class Chain:
         edge_to_chain = dict()
         chain_to_points = dict()         
         for chain in chains:
-            if chain.point_number>2:
-                a, b, c = chain.point_start, chain.point_mid, chain.point_end
-                chain_to_points[str(chain)] = [a, b, c]
-                edge_to_chain[str((a, b))] = edge_to_chain[str((b, a))] = chain
-                edge_to_chain[str((b, c))] = edge_to_chain[str((c, b))] = chain
-            if chain.point_number == 2:
-                a, b = chain.point_start, chain.point_end
-                chain_to_points[str[chain]] = [a, b]
-                edge_to_chain[str((a, b))] = edge_to_chain[str((b, a))] = chain
-
+            point_representation:list[Point]
+            if chain.point_number<4:
+                point_representation = chain.points
+            else:
+                s, e= chain.point_start, chain.point_end
+                ns, ne = chain.points[1], chain.points[-2]
+                point_representation = [s, ns, ne, e]
+            chain_to_points[id(chain)] = point_representation
+            edges = list(zip(point_representation, point_representation[1:]))
+            for edge in edges:
+                a, b = edge
+                edge_to_chain[str((a, b))] = chain
+                edge_to_chain[str((b, a))] = chain
         return chain_to_points, edge_to_chain
   
     @staticmethod
@@ -458,3 +461,8 @@ class Chain:
                     chain_loop.append(chain)
             chain_loops_list.append(chain_loop)
         return chain_loops_list
+
+    @property
+    def point_mid(self)->Point:
+        mid_index = self.point_number//2
+        return self.points[mid_index]

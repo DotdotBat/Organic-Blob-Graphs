@@ -125,7 +125,7 @@ class Point:
             return True
         return False
     
-    def assert_point_is_valid(self):        
+    def assert_is_valid(self):        
         #are references to other points mutual? 
         for other in self.connected_points:
             other:"Point"

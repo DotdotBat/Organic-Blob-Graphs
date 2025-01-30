@@ -5,10 +5,12 @@ from point import Point
 
 
 def get_faces_of_planar_graph(edges:list[tuple[Point, Point]])->list[list[Point]]:
-    if len(edges) == 1:
+    if len(edges) == 2:
         A, B = edges[0]
-        assert A==B
-        face = [A]
+        b, a = edges[1]
+        assert A==a
+        assert B == b
+        face = [A, B]
         faces = [face]
         return faces    
     
@@ -165,6 +167,7 @@ def trace_face(u_start, i_start, adj, used):
 
     while True:
         used[u][i] = True
+        assert u not in face
         face.append(u)
 
         v = adj[u][i]

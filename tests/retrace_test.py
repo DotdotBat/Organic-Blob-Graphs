@@ -101,12 +101,48 @@ def test_reconstruct_a_blob():
     assert reconstracted_blob == blob
     blob.assert_is_valid()
     reconstracted_blob.assert_is_valid()
+
+def test_reconstruct_a_couple_of_blobs():
+    frame = create_valid_blob()
+    c1, c2, c3, c4 = frame.chain_loop
+    assert frame.chain_loop == [c1, c2, c3, c4]
+    mid_chain = Chain.from_end_points(c2.point_mid, c4.point_mid, point_num=4)
+    chains = Chain.construct_chains_from_point_connections(mid_chain.point_mid)
+    assert any(chain == mid_chain for chain in chains)
+    two_blobs = Blob.construct_blobs_from_chains(chains)
+    for blob in two_blobs:
+        blob.assert_is_valid()
+        assert len(blob.chain_loop) == 2
+        assert any(chain == mid_chain for chain in blob.chain_loop)
+
+def test_reconstruct_a_quadruple_of_blobs():
+    frame = create_valid_blob()
+    c1, c2, c3, c4 = frame.chain_loop
+    assert frame.chain_loop == [c1, c2, c3, c4]
+    chain_a = Chain.from_end_points(c1.point_mid, c2.point_mid, point_num=5)
+    chain_b = Chain.from_end_points(c3.point_mid, c4.point_mid, point_num=5)
+    chain_c = Chain.from_end_points(chain_a.point_mid, chain_b.point_mid, point_num=3)
+    chains = Chain.construct_chains_from_point_connections(chain_c.point_mid)
     
+    four_blobs = Blob.construct_blobs_from_chains(chains)
+    assert len(four_blobs) == 4
+    for blob in four_blobs:
+        blob.assert_is_valid()
+    corners = [frame.get_point(i) for i in frame.intersection_indexes]
+    for corner in corners:
+        blobs_without_that_corner = [blob for blob in four_blobs if corner not in blob.points_list]
+        assert len(blobs_without_that_corner) == 3
+    for blob in four_blobs:
+        corners_outside_this_blob = [corner for corner in corners if corner not in blob.points_list]
+        assert len(corners_outside_this_blob)
+
+
 from blob_test import create_valid_blob_collection, assert_no_doubles_in_list
 
 def test_reconstruct_a_blob_collection():
     points, chains, blobs = create_valid_blob_collection()
     root_point = points[0]
+    
     new_chains = Chain.construct_chains_from_point_connections(root_point)
     assert_no_doubles_in_list(new_chains)
     assert len(new_chains) == len(chains)
@@ -120,8 +156,10 @@ def test_reconstruct_a_blob_collection():
 
 def test_reconstruct_blobs_when_they_all_share_two_points():
     p1, p2 = Point(-10, 0), Point(10, 0)
-    
-    middle_points = [Point.from_coordinates(0, i) for i in range(-10, 11)]
+    middle_points_number = 10
+    assert middle_points_number>2 
+    #one chain will not result in loops, and two will combine into a circular one. We need more.
+    middle_points = [Point.from_coordinates(0, i) for i in range(middle_points_number)]
 
     for mp in middle_points:
         mp.connect_point(p1)
@@ -129,11 +167,13 @@ def test_reconstruct_blobs_when_they_all_share_two_points():
     
     chains = Chain.construct_chains_from_point_connections(p1)
     assert_no_doubles_in_list(chains)
-    assert len(chains) == len(middle_points)
+
+    assert len(chains) == middle_points_number
     for chain in chains:
         assert chain.point_number == 3
         assert chain.points[1] in middle_points
     blobs = Blob.construct_blobs_from_chains(chains)
+    assert len(blobs) == middle_points_number - 1
     for blob in blobs:
         assert len(blob.chain_loop) == 2
     

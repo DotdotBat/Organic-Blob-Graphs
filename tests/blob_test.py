@@ -273,7 +273,7 @@ def test_create_valid_blob_collection():
     points, chains, blobs = create_valid_blob_collection()
     assert len(points)==14
     for point in points:
-        point.assert_point_is_valid() 
+        point.assert_is_valid() 
     assert len(points) == len(set(points)), "points uniqueness check failed"
 
     assert len(chains)==12
